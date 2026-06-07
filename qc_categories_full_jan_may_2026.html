@@ -1,0 +1,286 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.w{padding:1rem 0;font-family:var(--font-sans)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.25rem}
+.kpi{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem}
+.kl{font-size:12px;color:var(--color-text-secondary);margin-bottom:3px}
+.kv{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.ks{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.card{background:var(--color-background-primary);border:.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1rem}
+.ct{font-size:12px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:1rem}
+.tab{font-size:12px;padding:5px 13px;border-radius:var(--border-radius-md);border:.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer}
+.tab.on{background:#185FA5;border-color:#185FA5;color:#fff}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;align-items:center}
+.pill{font-size:12px;padding:4px 11px;border-radius:20px;border:.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary);color:var(--color-text-secondary);user-select:none;transition:all .15s}
+.pill.on{background:#185FA5;border-color:#185FA5;color:#fff}
+.leg{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;font-size:12px;color:var(--color-text-secondary)}
+.leg span{display:flex;align-items:center;gap:5px}
+.lb{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.ld{width:18px;height:0;border-top:2px dashed #E24B4A;flex-shrink:0}
+.tbl{width:100%;font-size:12px;border-collapse:collapse}
+.tbl th{font-weight:500;color:var(--color-text-secondary);text-align:left;padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.tbl td{padding:6px 8px;border-bottom:.5px solid var(--color-border-tertiary);color:var(--color-text-primary);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.b{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.bp{background:#EAF3DE;color:#3B6D11}.bf{background:#FCEBEB;color:#A32D2D}.bn{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+.bw{display:flex;align-items:center;gap:6px}
+.bg2{flex:1;height:8px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden}
+.bf2{height:100%;border-radius:4px;background:#185FA5}
+</style>
+<div class="w">
+<div class="kpi-grid" id="kpiGrid"></div>
+<div class="pills" id="pills"><span style="font-size:12px;color:var(--color-text-secondary);align-self:center;margin-right:2px">Agents:</span></div>
+<div class="tabs">
+  <button class="tab on" onclick="setTab('qc',this)">Monthly QC</button>
+  <button class="tab" onclick="setTab('weekly',this)">Weekly trend</button>
+  <button class="tab" onclick="setTab('cats',this)">Error categories</button>
+  <button class="tab" onclick="setTab('heat',this)">Category heatmap</button>
+  <button class="tab" onclick="setTab('table',this)">Scorecard</button>
+</div>
+<div id="pQc">
+  <div class="card">
+    <div class="ct">Monthly QC average per agent — target ≥ 85%</div>
+    <div class="leg" id="qcLeg"></div>
+    <div style="position:relative;height:300px"><canvas id="qcC"></canvas></div>
+  </div>
+</div>
+<div id="pWeekly" style="display:none">
+  <div class="card">
+    <div class="ct">Weekly QC trend — click an agent</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem" id="wPills"></div>
+    <div class="leg"><span><span class="ld"></span>85% target</span></div>
+    <div style="position:relative;height:300px"><canvas id="wC"></canvas></div>
+  </div>
+</div>
+<div id="pCats" style="display:none">
+  <div class="card">
+    <div class="ct">Error category frequency — selected agents</div>
+    <div class="leg" id="catLeg"></div>
+    <div id="catWrap" style="position:relative;height:420px"><canvas id="catC"></canvas></div>
+  </div>
+</div>
+<div id="pHeat" style="display:none">
+  <div class="card">
+    <div class="ct">Error category occurrences by month</div>
+    <div id="heatGrid"></div>
+  </div>
+</div>
+<div id="pTable" style="display:none">
+  <div class="card">
+    <div class="ct">QC scorecard — monthly averages</div>
+    <div style="overflow-x:auto"><table class="tbl" id="scTbl"><thead></thead><tbody></tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="ct">Error category counts per agent</div>
+    <div style="overflow-x:auto"><table class="tbl" id="catTbl"><thead></thead><tbody></tbody></table></div>
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const AGENTS=["David Wasen","Elizabeth Kemigisa","Fortunate Nahurira","Gloria Nahirya","Kenneth Birungi","Manita Joan","Nabyonga Racheal Kisakye","Violla Babirye","Angella Athieno"];
+const MONTHS=["Jan","Feb","Mar","Apr","May"];
+const PAL=["#185FA5","#1D9E75","#D85A30","#7F77DD","#BA7517","#D4537E","#378ADD","#639922","#E24B4A"];
+const DASHES=[[],[6,3],[3,3],[8,3,3,3],[5,2],[10,3],[4,4],[6,2,2,2],[]];
+
+const QC_M={"Angella Athieno":{"May":92.5},"David Wasen":{"Apr":89.7,"Mar":92.08,"May":88.44},"Elizabeth Kemigisa":{"Apr":90.75,"Feb":88.75,"Jan":83.75,"Mar":88.88,"May":96.25},"Fortunate Nahurira":{"Apr":95.5,"Feb":77.5,"Jan":88.54,"Mar":75.12,"May":83.12},"Gloria Nahirya":{"Apr":89.5,"Feb":88.75,"Jan":101.25,"Mar":88.06,"May":92.5},"Kenneth Birungi":{"Apr":88.9,"Feb":85.0,"Jan":89.38,"Mar":95.12,"May":94.5},"Manita Joan":{"Apr":93.25,"Feb":73.75,"Jan":87.5,"Mar":86.41,"May":74.58},"Nabyonga Racheal Kisakye":{"Apr":94.25,"Feb":88.75,"Jan":90.62,"Mar":89.38,"May":76.5},"Violla Babirye":{"Apr":92.75,"Mar":93.75,"May":96.04}};
+
+const CAT_A={"Nabyonga Racheal Kisakye":{"Didn`t mention consequences and benefits":10,"Script not followed":6,"No note":2,"Sounds":1,"Spoke with another agent while on a call with a client":2,"All information not given":1,"Didn`t mention name / surname":1,"Not all information requested from the N/K":1,"No negotiation":1},"Manita Joan":{"Script not followed":14,"Language":2,"Didn`t mention consequences and benefits":9,"No introduction":2,"Didn`t mention name / surname":1,"Not all information requested from the N/K":5,"Note does not correspond with call conversation":2,"Confused":1,"No note":1,"Unclear communication":1,"No Empathy":1,"Incomplete notes":1,"No negotiation":1},"Kenneth Birungi":{"Script not followed":17,"Didn`t mention consequences and benefits":7,"Didn`t mention name / surname":1,"No Probing":1,"Not all information requested from the N/K":3,"Disclose the loan amount to a non client":1},"Fortunate Nahurira":{"No consistent greeting":5,"Note does not correspond with call conversation":1,"All information not given":3,"Script not followed":10,"No introduction":1,"Didn`t mention consequences and benefits":4,"No note":3,"Confused":1,"Lack of knowledge":1,"Unnecessary information given":1,"Not prepared":1},"Elizabeth Kemigisa":{"No consistent greeting":6,"Didn`t mention consequences and benefits":9,"Unclear communication":1,"Didn`t mention name / surname":1,"No introduction":1,"Script not followed":5,"Incomplete notes":2,"Spoke with another agent while on a call with a client":1,"No negotiation":1,"Language":1},"Gloria Nahirya":{"Didn`t mention name / surname":3,"Not all information requested from the N/K":3,"Script not followed":12,"All information not given":1,"Didn`t mention consequences and benefits":10,"No Probing":3,"No note":1,"No introduction":1},"David Wasen":{"Unclear communication":1,"No note":1,"Script not followed":2,"All information not given":2,"Didn`t mention consequences and benefits":3,"Lack of knowledge":1,"No introduction":1},"Violla Babirye":{"Script not followed":3,"Didn`t mention consequences and benefits":1,"Not all information requested from the N/K":1,"Not prepared":2,"No Probing":1},"Angella Athieno":{"No Probing":1,"Script not followed":1}};
+
+const CAT_MO={"Jan":{"Didn`t mention consequences and benefits":4,"Script not followed":12,"No consistent greeting":7,"Spoke with another agent while on a call with a client":1,"No negotiation":2,"Language":2,"Note does not correspond with call conversation":1},"Feb":{"Script not followed":14,"Language":1,"Note does not correspond with call conversation":2,"Didn`t mention consequences and benefits":8,"Unclear communication":2,"Sounds":1,"No introduction":3,"Didn`t mention name / surname":1,"Not all information requested from the N/K":2,"Incomplete notes":1,"All information not given":1,"No note":2,"Confused":1},"Mar":{"Didn`t mention consequences and benefits":5,"Script not followed":11,"All information not given":3,"Didn`t mention name / surname":2,"No introduction":1,"Not all information requested from the N/K":1,"No note":1,"Spoke with another agent while on a call with a client":1},"Apr":{"Didn`t mention consequences and benefits":16,"Script not followed":7,"Didn`t mention name / surname":3,"No Probing":2,"Not all information requested from the N/K":6,"All information not given":1,"Not prepared":2,"No consistent greeting":3,"Incomplete notes":1,"Lack of knowledge":1,"Confused":1},"May":{"No note":5,"All information not given":2,"Didn`t mention consequences and benefits":20,"No consistent greeting":1,"Script not followed":26,"Unclear communication":1,"Spoke with another agent while on a call with a client":1,"No introduction":2,"No Empathy":1,"Incomplete notes":1,"Not all information requested from the N/K":4,"No Probing":4,"Didn`t mention name / surname":1,"Disclose the loan amount to a non client":1,"No negotiation":1,"Lack of knowledge":1,"Unnecessary information given":1,"Not prepared":1}};
+
+const QC_W={"David Wasen":[{"week":"14th-21st Mar","month":"Mar","score":91.67},{"week":"21st-27th Mar","month":"Mar","score":92.5},{"week":"28th-03rd Apr","month":"Apr","score":92.5},{"week":"04th-10th Apr","month":"Apr","score":91.0},{"week":"11th-17th Apr","month":"Apr","score":92.5},{"week":"18th-24th Apr","month":"Apr","score":72.5},{"week":"25th-30th Apr","month":"Apr","score":100.0},{"week":"01st-08th May","month":"May","score":100.0},{"week":"09th-15th May","month":"May","score":50.0},{"week":"16th-22nd May","month":"May","score":102.5},{"week":"23rd-29th May","month":"May","score":101.25}],"Elizabeth Kemigisa":[{"week":"03rd-09th Jan","month":"Jan","score":75.0},{"week":"10th-16th Jan","month":"Jan","score":75.0},{"week":"17th-23rd Jan","month":"Jan","score":85.0},{"week":"24th-30th Jan","month":"Jan","score":100.0},{"week":"31st-06th Feb","month":"Feb","score":75.0},{"week":"07th-13th Feb","month":"Feb","score":100.0},{"week":"14th-20th Feb","month":"Feb","score":100.0},{"week":"21st-27th Feb","month":"Feb","score":80.0},{"week":"28th-06th Mar","month":"Mar","score":85.0},{"week":"07th-13th Mar","month":"Mar","score":92.5},{"week":"14th-21st Mar","month":"Mar","score":78.0},{"week":"21st-27th Mar","month":"Mar","score":100.0},{"week":"28th-03rd Apr","month":"Apr","score":100.0},{"week":"04th-10th Apr","month":"Apr","score":92.5},{"week":"11th-17th Apr","month":"Apr","score":75.0},{"week":"18th-24th Apr","month":"Apr","score":85.0},{"week":"25th-30th Apr","month":"Apr","score":101.25},{"week":"01st-08th May","month":"May","score":100.0},{"week":"09th-15th May","month":"May","score":85.0},{"week":"16th-22nd May","month":"May","score":100.0},{"week":"23rd-29th May","month":"May","score":100.0}],"Fortunate Nahurira":[{"week":"03rd-09th Jan","month":"Jan","score":66.67},{"week":"10th-16th Jan","month":"Jan","score":100.0},{"week":"17th-23rd Jan","month":"Jan","score":87.5},{"week":"24th-30th Jan","month":"Jan","score":100.0},{"week":"31st-06th Feb","month":"Feb","score":100.0},{"week":"07th-13th Feb","month":"Feb","score":100.0},{"week":"14th-20th Feb","month":"Feb","score":60.0},{"week":"21st-27th Feb","month":"Feb","score":50.0},{"week":"28th-06th Mar","month":"Mar","score":75.0},{"week":"07th-13th Mar","month":"Mar","score":69.0},{"week":"14th-21st Mar","month":"Mar","score":84.0},{"week":"21st-27th Mar","month":"Mar","score":72.5},{"week":"28th-03rd Apr","month":"Apr","score":93.75},{"week":"04th-10th Apr","month":"Apr","score":95.0},{"week":"11th-17th Apr","month":"Apr","score":101.25},{"week":"18th-24th Apr","month":"Apr","score":85.0},{"week":"25th-30th Apr","month":"Apr","score":102.5},{"week":"01st-08th May","month":"May","score":60.0},{"week":"09th-15th May","month":"May","score":87.5},{"week":"16th-22nd May","month":"May","score":100.0},{"week":"23rd-29th May","month":"May","score":85.0}],"Gloria Nahirya":[{"week":"03rd-09th Jan","month":"Jan","score":100.0},{"week":"10th-16th Jan","month":"Jan","score":102.5},{"week":"17th-23rd Jan","month":"Jan","score":100.0},{"week":"24th-30th Jan","month":"Jan","score":102.5},{"week":"31st-06th Feb","month":"Feb","score":85.0},{"week":"07th-13th Feb","month":"Feb","score":85.0},{"week":"14th-20th Feb","month":"Feb","score":85.0},{"week":"21st-27th Feb","month":"Feb","score":100.0},{"week":"28th-06th Mar","month":"Mar","score":86.25},{"week":"07th-13th Mar","month":"Mar","score":100.0},{"week":"14th-21st Mar","month":"Mar","score":84.0},{"week":"21st-27th Mar","month":"Mar","score":82.0},{"week":"28th-03rd Apr","month":"Apr","score":100.0},{"week":"04th-10th Apr","month":"Apr","score":72.0},{"week":"11th-17th Apr","month":"Apr","score":88.0},{"week":"18th-24th Apr","month":"Apr","score":100.0},{"week":"25th-30th Apr","month":"Apr","score":87.5},{"week":"01st-08th May","month":"May","score":100.0},{"week":"09th-15th May","month":"May","score":85.0},{"week":"16th-22nd May","month":"May","score":85.0},{"week":"23rd-29th May","month":"May","score":100.0}],"Kenneth Birungi":[{"week":"03rd-09th Jan","month":"Jan","score":85.0},{"week":"10th-16th Jan","month":"Jan","score":85.0},{"week":"17th-23rd Jan","month":"Jan","score":85.0},{"week":"24th-30th Jan","month":"Jan","score":102.5},{"week":"31st-06th Feb","month":"Feb","score":85.0},{"week":"07th-13th Feb","month":"Feb","score":85.0},{"week":"21st-27th Feb","month":"Feb","score":85.0},{"week":"28th-06th Mar","month":"Mar","score":88.0},{"week":"07th-13th Mar","month":"Mar","score":92.5},{"week":"14th-21st Mar","month":"Mar","score":100.0},{"week":"21st-27th Mar","month":"Mar","score":100.0},{"week":"28th-03rd Apr","month":"Apr","score":82.0},{"week":"04th-10th Apr","month":"Apr","score":70.0},{"week":"11th-17th Apr","month":"Apr","score":92.5},{"week":"18th-24th Apr","month":"Apr","score":100.0},{"week":"25th-30th Apr","month":"Apr","score":100.0},{"week":"01st-08th May","month":"May","score":100.0},{"week":"09th-15th May","month":"May","score":100.0},{"week":"16th-22nd May","month":"May","score":100.0},{"week":"23rd-29th May","month":"May","score":78.0}],"Manita Joan":[{"week":"03rd-09th Jan","month":"Jan","score":70.0},{"week":"10th-16th Jan","month":"Jan","score":100.0},{"week":"17th-23rd Jan","month":"Jan","score":80.0},{"week":"24th-30th Jan","month":"Jan","score":100.0},{"week":"31st-06th Feb","month":"Feb","score":80.0},{"week":"07th-13th Feb","month":"Feb","score":85.0},{"week":"14th-20th Feb","month":"Feb","score":70.0},{"week":"21st-27th Feb","month":"Feb","score":60.0},{"week":"28th-06th Mar","month":"Mar","score":92.5},{"week":"07th-13th Mar","month":"Mar","score":100.0},{"week":"14th-21st Mar","month":"Mar","score":60.63},{"week":"21st-27th Mar","month":"Mar","score":92.5},{"week":"28th-03rd Apr","month":"Apr","score":92.5},{"week":"04th-10th Apr","month":"Apr","score":100.0},{"week":"11th-17th Apr","month":"Apr","score":100.0},{"week":"18th-24th Apr","month":"Apr","score":85.0},{"week":"25th-30th Apr","month":"Apr","score":88.75},{"week":"01st-08th May","month":"May","score":85.0},{"week":"09th-15th May","month":"May","score":70.0},{"week":"16th-22nd May","month":"May","score":63.33},{"week":"23rd-29th May","month":"May","score":80.0}],"Nabyonga Racheal Kisakye":[{"week":"03rd-09th Jan","month":"Jan","score":85.0},{"week":"10th-16th Jan","month":"Jan","score":100.0},{"week":"17th-23rd Jan","month":"Jan","score":100.0},{"week":"24th-30th Jan","month":"Jan","score":77.5},{"week":"31st-06th Feb","month":"Feb","score":85.0},{"week":"07th-13th Feb","month":"Feb","score":85.0},{"week":"14th-20th Feb","month":"Feb","score":100.0},{"week":"21st-27th Feb","month":"Feb","score":85.0},{"week":"28th-06th Mar","month":"Mar","score":100.0},{"week":"07th-13th Mar","month":"Mar","score":92.5},{"week":"14th-21st Mar","month":"Mar","score":85.0},{"week":"21st-27th Mar","month":"Mar","score":80.0},{"week":"28th-03rd Apr","month":"Apr","score":100.0},{"week":"04th-10th Apr","month":"Apr","score":100.0},{"week":"11th-17th Apr","month":"Apr","score":85.0},{"week":"18th-24th Apr","month":"Apr","score":92.5},{"week":"25th-30th Apr","month":"Apr","score":93.75},{"week":"01st-08th May","month":"May","score":60.0},{"week":"09th-15th May","month":"May","score":85.0},{"week":"16th-22nd May","month":"May","score":85.0},{"week":"23rd-29th May","month":"May","score":76.0}],"Violla Babirye":[{"week":"21st-27th Mar","month":"Mar","score":93.75},{"week":"28th-03rd Apr","month":"Apr","score":93.75},{"week":"04th-10th Apr","month":"Apr","score":85.0},{"week":"11th-17th Apr","month":"Apr","score":85.0},{"week":"18th-24th Apr","month":"Apr","score":100.0},{"week":"25th-30th Apr","month":"Apr","score":100.0},{"week":"01st-08th May","month":"May","score":91.67},{"week":"09th-15th May","month":"May","score":100.0},{"week":"16th-22nd May","month":"May","score":100.0},{"week":"23rd-29th May","month":"May","score":92.5}],"Angella Athieno":[{"week":"09th-15th May","month":"May","score":100.0},{"week":"16th-22nd May","month":"May","score":85.0},{"week":"23rd-29th May","month":"May","score":92.5}]};
+
+const SH={"Script not followed":"Script not followed","Didn`t mention consequences and benefits":"No conseq. & benefits","Not all information requested from the N/K":"N/K info incomplete","No consistent greeting":"Inconsistent greeting","No note":"No note","All information not given":"Info not given","Didn`t mention name / surname":"No name/surname","No Probing":"No probing","Spoke with another agent while on a call with a client":"Spoke w/ other agent","No introduction":"No introduction","Confused":"Confused","Unclear communication":"Unclear comm.","Not prepared":"Not prepared","Incomplete notes":"Incomplete notes","Lack of knowledge":"Lack of knowledge","Language":"Language","Note does not correspond with call conversation":"Notes mismatch","No Empathy":"No empathy","Disclose the loan amount to a non client":"Disclosed loan amt","No negotiation":"No negotiation","Unnecessary information given":"Unnecessary info","Sounds":"Sounds"};
+
+let active=new Set(AGENTS), curTab='qc', wAgent=AGENTS[0];
+let qcChart=null,wChart=null,catChart=null;
+
+const col=i=>PAL[i%PAL.length];
+const sh=c=>SH[c]||c;
+const getActive=()=>AGENTS.filter(a=>active.has(a));
+
+function buildKPIs(){
+  const allQ=AGENTS.flatMap(a=>Object.values(QC_M[a]||{}));
+  const avg=allQ.reduce((s,v)=>s+v,0)/allQ.length;
+  const passing=AGENTS.filter(a=>{const v=Object.values(QC_M[a]||{});return v.length&&v.reduce((s,x)=>s+x,0)/v.length>=85;}).length;
+  const totalE=AGENTS.reduce((s,a)=>s+Object.values(CAT_A[a]||{}).reduce((x,y)=>x+y,0),0);
+  const merged={};
+  AGENTS.forEach(a=>Object.entries(CAT_A[a]||{}).forEach(([k,v])=>merged[k]=(merged[k]||0)+v));
+  const top=Object.entries(merged).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('kpiGrid').innerHTML=`
+    <div class="kpi"><div class="kl">Team avg QC</div><div class="kv">${avg.toFixed(1)}%</div><div class="ks">target ≥ 85%</div></div>
+    <div class="kpi"><div class="kl">Agents ≥ 85% avg</div><div class="kv">${passing} / ${AGENTS.length}</div><div class="ks">of 9 agents</div></div>
+    <div class="kpi"><div class="kl">Total errors logged</div><div class="kv">${totalE}</div><div class="ks">Jan – May</div></div>
+    <div class="kpi"><div class="kl">Top error</div><div class="kv" style="font-size:13px;line-height:1.4">${sh(top[0])}</div><div class="ks">${top[1]} times</div></div>`;
+}
+
+function buildPills(){
+  const c=document.getElementById('pills');
+  while(c.children.length>1)c.removeChild(c.lastChild);
+  AGENTS.forEach((a,i)=>{
+    const p=document.createElement('span');
+    p.className='pill on';p.textContent=a.split(' ')[0];p.title=a;
+    p.onclick=()=>{if(active.has(a)){if(active.size===1)return;active.delete(a);p.classList.remove('on');}else{active.add(a);p.classList.add('on');}redraw();};
+    c.appendChild(p);
+  });
+  const all=document.createElement('span');
+  all.className='pill';all.textContent='All';
+  all.onclick=()=>{AGENTS.forEach(a=>active.add(a));c.querySelectorAll('.pill:not(:last-child)').forEach(p=>p.classList.add('on'));redraw();};
+  c.appendChild(all);
+}
+
+function buildWPills(){
+  const c=document.getElementById('wPills');c.innerHTML='';
+  AGENTS.forEach((a,i)=>{
+    const p=document.createElement('span');
+    p.className='pill'+(a===wAgent?' on':'');
+    if(a===wAgent){p.style.background=col(i);p.style.borderColor=col(i);p.style.color='#fff';}
+    p.textContent=a.split(' ')[0];p.title=a;
+    p.onclick=()=>{wAgent=a;buildWPills();renderWeekly();};
+    c.appendChild(p);
+  });
+}
+
+function renderQCLeg(){
+  const ag=getActive();
+  document.getElementById('qcLeg').innerHTML=
+    ag.map(a=>{const i=AGENTS.indexOf(a);return`<span><span class="lb" style="background:${col(i)}"></span>${a.split(' ')[0]}</span>`;}).join('')+
+    `<span><span class="ld"></span>85% target</span>`;
+}
+
+function renderQC(){
+  if(qcChart){qcChart.destroy();qcChart=null;}
+  renderQCLeg();
+  const ag=getActive();
+  const ds=ag.map(a=>{
+    const i=AGENTS.indexOf(a);
+    return{label:a,data:MONTHS.map(m=>QC_M[a]?.[m]??null),borderColor:col(i),backgroundColor:'transparent',borderWidth:2,pointRadius:5,pointHoverRadius:7,borderDash:DASHES[i],tension:.3,spanGaps:false};
+  });
+  ds.push({label:'85% target',data:MONTHS.map(()=>85),borderColor:'#E24B4A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,tension:0});
+  qcChart=new Chart(document.getElementById('qcC'),{
+    type:'line',data:{labels:MONTHS,datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw!=null?`${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`:null}}},
+      scales:{y:{min:60,max:115,ticks:{callback:v=>v+'%',font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function renderWeekly(){
+  if(wChart){wChart.destroy();wChart=null;}
+  const i=AGENTS.indexOf(wAgent);
+  const data=QC_W[wAgent]||[];
+  const labels=data.map(d=>d.week);
+  const scores=data.map(d=>d.score);
+  // colour background bands by month
+  wChart=new Chart(document.getElementById('wC'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:wAgent,data:scores,borderColor:col(i),backgroundColor:col(i)+'22',fill:true,borderWidth:2,pointRadius:4,pointHoverRadius:7,tension:.3},
+      {label:'85% target',data:labels.map(()=>85),borderColor:'#E24B4A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,tension:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw?.toFixed(1)}%`,title:ctxs=>`${ctxs[0].label} (${data[ctxs[0].dataIndex]?.month})`}}},
+      scales:{y:{min:40,max:115,ticks:{callback:v=>v+'%',font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},
+        x:{ticks:{font:{size:10},maxRotation:45,autoSkip:false},grid:{display:false}}}}
+  });
+}
+
+function renderCatLeg(sorted,colors){
+  document.getElementById('catLeg').innerHTML=sorted.slice(0,8).map((e,i)=>`<span><span class="lb" style="background:${colors[i]}"></span>${sh(e[0])}</span>`).join('');
+}
+
+function renderCats(){
+  if(catChart){catChart.destroy();catChart=null;}
+  const ag=getActive();
+  const merged={};
+  ag.forEach(a=>Object.entries(CAT_A[a]||{}).forEach(([k,v])=>merged[k]=(merged[k]||0)+v));
+  const sorted=Object.entries(merged).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  const labels=sorted.map(e=>sh(e[0]));
+  const vals=sorted.map(e=>e[1]);
+  const colors=sorted.map((_,i)=>PAL[i%PAL.length]);
+  renderCatLeg(sorted,colors);
+  const h=Math.max(380,sorted.length*42+80);
+  document.getElementById('catWrap').style.height=h+'px';
+  catChart=new Chart(document.getElementById('catC'),{
+    type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0,borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} occurrences`}}},
+      scales:{x:{ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},y:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function renderHeat(){
+  const allCats=Object.keys(Object.values(CAT_MO).reduce((acc,o)=>{Object.keys(o).forEach(k=>acc[k]=true);return acc;},{}))
+    .sort((a,b)=>MONTHS.reduce((s,m)=>s+(CAT_MO[m]?.[b]||0),0)-MONTHS.reduce((s,m)=>s+(CAT_MO[m]?.[a]||0),0));
+  const maxV=Math.max(...allCats.flatMap(c=>MONTHS.map(m=>CAT_MO[m]?.[c]||0)));
+  let html=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr><th style="text-align:left;padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.04em">Category</th>`;
+  MONTHS.forEach(m=>html+=`<th style="text-align:center;padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.04em">${m}</th>`);
+  html+=`<th style="text-align:center;padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.04em">Total</th></tr></thead><tbody>`;
+  allCats.forEach(cat=>{
+    const total=MONTHS.reduce((s,m)=>s+(CAT_MO[m]?.[cat]||0),0);
+    if(!total)return;
+    html+=`<tr><td style="padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;white-space:nowrap">${sh(cat)}</td>`;
+    MONTHS.forEach(m=>{
+      const v=CAT_MO[m]?.[cat]||0;
+      const pct=v/maxV;
+      const bg=v?`rgba(24,95,165,${(0.1+pct*0.75).toFixed(2)})`:'transparent';
+      const tc=v?(pct>.5?'#fff':'var(--color-text-primary)'):'var(--color-text-tertiary)';
+      html+=`<td style="text-align:center;padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);background:${bg};color:${tc};font-weight:${v?500:400}">${v||'—'}</td>`;
+    });
+    html+=`<td style="text-align:center;padding:5px 8px;border-bottom:.5px solid var(--color-border-tertiary);font-weight:600;color:var(--color-text-primary)">${total}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('heatGrid').innerHTML=html;
+}
+
+function renderTables(){
+  const ag=getActive();
+  // QC scorecard
+  const sc=document.getElementById('scTbl');
+  sc.querySelector('thead').innerHTML=`<tr><th>Agent</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th>Avg QC</th></tr>`;
+  sc.querySelector('tbody').innerHTML=ag.map(a=>{
+    const known=MONTHS.filter(m=>QC_M[a]?.[m]!=null);
+    const avg=known.length?known.reduce((s,m)=>s+QC_M[a][m],0)/known.length:null;
+    return`<tr><td style="font-weight:500;white-space:nowrap">${a}</td>`+
+      MONTHS.map(m=>{const v=QC_M[a]?.[m];return`<td>${v!=null?`<span class="b ${v>=85?'bp':'bf'}">${v.toFixed(1)}%</span>`:'<span class="b bn">—</span>'}</td>`;}).join('')+
+      `<td>${avg!=null?`<span class="b ${avg>=85?'bp':'bf'}">${avg.toFixed(1)}%</span>`:'—'}</td></tr>`;
+  }).join('');
+  // Category table
+  const allCats=[...new Set(ag.flatMap(a=>Object.keys(CAT_A[a]||{})))].sort((a,b)=>
+    ag.reduce((s,x)=>s+(CAT_A[x]?.[b]||0),0)-ag.reduce((s,x)=>s+(CAT_A[x]?.[a]||0),0));
+  const maxC=Math.max(...allCats.map(c=>ag.reduce((s,x)=>s+(CAT_A[x]?.[c]||0),0)));
+  const ct=document.getElementById('catTbl');
+  ct.querySelector('thead').innerHTML=`<tr><th>Category</th>${ag.map(a=>`<th>${a.split(' ')[0]}</th>`).join('')}<th>Total</th></tr>`;
+  ct.querySelector('tbody').innerHTML=allCats.map(cat=>{
+    const total=ag.reduce((s,a)=>s+(CAT_A[a]?.[cat]||0),0);
+    if(!total)return'';
+    return`<tr><td style="font-size:11px;white-space:nowrap">${sh(cat)}</td>`+
+      ag.map(a=>{const v=CAT_A[a]?.[cat]||0;return`<td style="text-align:center">${v?`<span style="font-size:12px;font-weight:600;color:${col(AGENTS.indexOf(a))}">${v}</span>`:'—'}</td>`;}).join('')+
+      `<td><div class="bw"><div class="bg2"><div class="bf2" style="width:${Math.round(total/maxC*100)}%"></div></div><span style="font-size:11px;font-weight:600;min-width:20px">${total}</span></div></td></tr>`;
+  }).join('');
+}
+
+function redraw(){
+  if(curTab==='qc')renderQC();
+  else if(curTab==='weekly'){buildWPills();renderWeekly();}
+  else if(curTab==='cats')renderCats();
+  else if(curTab==='heat')renderHeat();
+  else if(curTab==='table')renderTables();
+}
+
+function setTab(t,btn){
+  curTab=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['pQc','pWeekly','pCats','pHeat','pTable'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById({qc:'pQc',weekly:'pWeekly',cats:'pCats',heat:'pHeat',table:'pTable'}[t]).style.display='';
+  redraw();
+}
+
+buildKPIs(); buildPills(); renderQC();
+</script>
