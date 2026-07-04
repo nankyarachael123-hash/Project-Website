@@ -6,6 +6,9 @@
 <title>QC Dashboard · Call Centre 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<!-- Firebase v9 compat (works as drop-in without bundler) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -153,6 +156,48 @@ code{background:var(--s3);border:1px solid var(--border);border-radius:3px;paddi
     <input type="file" id="impWeekly" accept=".csv" multiple style="display:none" onchange="importWeeklyCSV(event)">
     <button class="btn btn-accent" onclick="openAddModal()">＋ Add Entry</button>
   </div>
+</div>
+
+<!-- Firebase config banner — shown until user pastes their config -->
+<div id="fbBanner" style="display:none;background:#1a1040;border-bottom:2px solid #f5a623;padding:12px 20px;align-items:center;flex-wrap:wrap;gap:10px">
+  <span style="font-size:13px;color:#f5a623;font-weight:600">🔥 Firebase not configured</span>
+  <span style="font-size:12px;color:#c8b8f0;flex:1;min-width:200px">Paste your Firebase config below to enable cross-device sync. <a href="#" onclick="document.getElementById('fbSetupCard').style.display='';document.getElementById('fbBanner').style.display='none';return false" style="color:#f5a623;text-decoration:underline">Set up now →</a></span>
+  <button class="btn" style="font-size:11px;padding:4px 10px;color:#f5a623;border-color:#f5a62344" onclick="document.getElementById('fbBanner').style.display='none'">Dismiss (use local only)</button>
+</div>
+
+<!-- Firebase setup card -->
+<div id="fbSetupCard" style="display:none;background:#1a1040;border-bottom:2px solid #7c3aed;padding:16px 20px">
+  <div style="max-width:700px">
+    <div style="font-size:14px;font-weight:600;color:#f5a623;margin-bottom:8px">🔥 Firebase Setup — 3 minutes, free forever</div>
+    <ol style="font-size:12px;color:#c8b8f0;line-height:2;padding-left:18px;margin-bottom:12px">
+      <li>Go to <a href="https://console.firebase.google.com" target="_blank" style="color:#f5a623">console.firebase.google.com</a> → <b>Add project</b> → name it (e.g. "qc-dashboard") → Continue</li>
+      <li>In your project: click <b>Firestore Database</b> → <b>Create database</b> → choose <b>Start in test mode</b> → Next → Enable</li>
+      <li>Click the ⚙ gear icon → <b>Project settings</b> → scroll to <b>Your apps</b> → click <b>&lt;/&gt; Web</b> → register app → copy the <code>firebaseConfig</code> object</li>
+      <li>Paste it in the box below and click <b>Save & Connect</b></li>
+    </ol>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <textarea id="fbConfigInput" style="flex:1;min-width:280px;height:110px;background:#0f0a2a;border:1px solid #7c3aed;border-radius:6px;color:#e2d9f3;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px;outline:none;resize:vertical" placeholder='Paste your firebaseConfig object here, e.g.:
+{
+  apiKey: "AIza...",
+  authDomain: "your-app.firebaseapp.com",
+  projectId: "your-app",
+  ...
+}'></textarea>
+      <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end">
+        <button class="btn btn-accent" onclick="saveFirebaseConfig()" style="white-space:nowrap">💾 Save & Connect</button>
+        <button class="btn" onclick="document.getElementById('fbSetupCard').style.display='none'" style="font-size:11px">Cancel</button>
+        <button class="btn" style="font-size:11px;color:var(--danger);border-color:#e8545444" onclick="clearFirebaseConfig()">Remove config</button>
+      </div>
+    </div>
+    <div id="fbConfigMsg" style="font-size:11px;margin-top:8px;color:var(--accent2)"></div>
+  </div>
+</div>
+
+<!-- Firebase status bar (shown when connected) -->
+<div id="fbStatusBar" style="display:none;background:#0a2010;border-bottom:1px solid #00c89644;padding:7px 20px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+  <span id="fbStatusDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00c896;flex-shrink:0"></span>
+  <span id="fbStatusText" style="font-size:11px;color:#00c896;font-family:'JetBrains Mono',monospace;flex:1">Connected to Firebase</span>
+  <button class="btn" style="font-size:10px;padding:3px 8px" onclick="document.getElementById('fbSetupCard').style.display='';document.getElementById('fbStatusBar').style.display='none'">⚙ Config</button>
 </div>
 
 <div class="main">
@@ -337,18 +382,133 @@ const SEED={"entries":[{"id":"o1","agent":"Elizabeth Kemigisa","month":"Jan","we
 let S={agents:[...DEFAULT_AGENTS],categories:[...DEFAULT_CATS],entries:[],active:new Set(DEFAULT_AGENTS),wAgent:DEFAULT_AGENTS[0],editId:null};
 let tC=null,wC=null,eC=null,curTab='trend';
 
-// ── Persistence ──
-function save(){localStorage.setItem('qc_dash_v3',JSON.stringify({agents:S.agents,categories:S.categories,entries:S.entries}));}
+// ══════════════════════════════════════════════════════
+//  FIREBASE
+// ══════════════════════════════════════════════════════
+let db = null;
+let fbUnsubscribe = null;
+const FB_DOC = 'qc_dashboard/data';
+
+function saveFirebaseConfig(){
+  const raw = document.getElementById('fbConfigInput').value.trim();
+  const msg = document.getElementById('fbConfigMsg');
+  try {
+    // Strip "const firebaseConfig =" wrapper and trailing semicolon
+    let cleaned = raw
+      .replace(/^const\s+firebaseConfig\s*=\s*/, '')
+      .replace(/^var\s+firebaseConfig\s*=\s*/, '')
+      .replace(/^let\s+firebaseConfig\s*=\s*/, '')
+      .replace(/;\s*$/, '')
+      .trim();
+
+    // Use Function() to safely evaluate the JS object literal
+    // This handles unquoted keys, single quotes, trailing commas — exactly what Firebase gives you
+    const config = (new Function('return (' + cleaned + ')'))();
+
+    if (!config || !config.projectId) throw new Error('Missing projectId — make sure you copied the full config block');
+
+    localStorage.setItem('qc_fb_config', JSON.stringify(config));
+    msg.style.color = 'var(--accent2)';
+    msg.textContent = '✓ Config saved. Connecting to ' + config.projectId + '…';
+    initFirebase(config);
+  } catch(e) {
+    msg.style.color = 'var(--danger)';
+    msg.textContent = '⚠ ' + e.message;
+  }
+}
+
+function clearFirebaseConfig(){
+  if(!confirm('Remove Firebase config? The dashboard will revert to local-only storage.')) return;
+  localStorage.removeItem('qc_fb_config');
+  if(fbUnsubscribe) fbUnsubscribe();
+  db = null;
+  document.getElementById('fbSetupCard').style.display = 'none';
+  document.getElementById('fbStatusBar').style.display = 'none';
+  document.getElementById('fbBanner').style.display = '';
+  toast('Firebase config removed — using local storage');
+}
+
+function initFirebase(config){
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    db = firebase.firestore();
+    document.getElementById('fbSetupCard').style.display = 'none';
+    document.getElementById('fbBanner').style.display = 'none';
+    setFbStatus('syncing', 'Connecting to Firebase…');
+    startFirestoreListener();
+  } catch(e) {
+    setFbStatus('error', 'Firebase error: ' + e.message);
+    document.getElementById('fbConfigMsg').style.color = 'var(--danger)';
+    document.getElementById('fbConfigMsg').textContent = '⚠ Firebase init failed: ' + e.message;
+  }
+}
+
+function setFbStatus(state, text){
+  const bar = document.getElementById('fbStatusBar');
+  const dot = document.getElementById('fbStatusDot');
+  const txt = document.getElementById('fbStatusText');
+  bar.style.display = 'flex';
+  txt.textContent = text;
+  const colours = {connected:'#00c896', syncing:'#f5a623', error:'#e85454'};
+  const c = colours[state] || '#f5a623';
+  dot.style.background = c; dot.style.boxShadow = '0 0 6px ' + c;
+}
+
+function startFirestoreListener(){
+  if(fbUnsubscribe) fbUnsubscribe();
+  const [col, docId] = FB_DOC.split('/');
+  fbUnsubscribe = db.collection(col).doc(docId).onSnapshot(snap => {
+    if(snap.exists){
+      const d = snap.data();
+      S.agents     = d.agents     || DEFAULT_AGENTS;
+      S.categories = d.categories || DEFAULT_CATS;
+      S.entries    = d.entries    || [];
+      S.active = new Set(S.agents);
+      if(!S.agents.includes(S.wAgent)) S.wAgent = S.agents[0] || '';
+      save(); // mirror to localStorage as backup
+      setFbStatus('connected', '🔥 Firebase synced · ' + S.entries.length + ' entries · ' + new Date().toLocaleTimeString());
+      buildFilterBar();
+      redraw();
+    } else {
+      setFbStatus('syncing', 'First run — uploading seed data…');
+      persist(() => setFbStatus('connected', '🔥 Firebase ready · seed data uploaded'));
+    }
+  }, err => {
+    setFbStatus('error', '⚠ Firestore: ' + err.message + ' — check your rules allow read/write');
+  });
+}
+
+function persist(callback){
+  save();
+  if(db){
+    const [col, docId] = FB_DOC.split('/');
+    setFbStatus('syncing', 'Saving…');
+    db.collection(col).doc(docId).set({
+      agents: S.agents, categories: S.categories, entries: S.entries,
+      updatedAt: new Date().toISOString()
+    }).then(() => {
+      setFbStatus('connected', '🔥 Firebase synced · ' + S.entries.length + ' entries · saved ' + new Date().toLocaleTimeString());
+      if(callback) callback();
+    }).catch(err => {
+      setFbStatus('error', '⚠ Save failed: ' + err.message);
+      if(callback) callback();
+    });
+  } else {
+    if(callback) callback();
+  }
+}
+
+// ── Persistence (localStorage — always used as local backup) ──
+function save(){ localStorage.setItem('qc_dash_v3', JSON.stringify({agents:S.agents, categories:S.categories, entries:S.entries})); }
 function load(){
   try{
     const d=JSON.parse(localStorage.getItem('qc_dash_v3'));
     if(d&&d.entries&&d.entries.length){
-      S.agents=d.agents||DEFAULT_AGENTS;S.categories=d.categories||DEFAULT_CATS;
-      S.entries=d.entries;S.active=new Set(S.agents);S.wAgent=S.agents[0];
+      S.agents=d.agents||DEFAULT_AGENTS; S.categories=d.categories||DEFAULT_CATS;
+      S.entries=d.entries; S.active=new Set(S.agents); S.wAgent=S.agents[0];
       return;
     }
   }catch(e){}
-  // first load: seed with CSV data
   S.entries=[...SEED.entries];
   save();
 }
@@ -565,16 +725,16 @@ function saveEntry(){
   const notes=document.getElementById('fNotes').value.trim();
   const cats=[...document.querySelectorAll('#fCatGrid input:checked')].map(el=>el.value);
   if(!agent||!month||!week||isNaN(score)){toast('Fill in all required fields (*)',false);return;}
-  if(S.editId){const i=S.entries.findIndex(e=>e.id===S.editId);if(i>=0)S.entries[i]={...S.entries[i],agent,month,week,score,categories:cats,notes};toast('Entry updated');}
-  else{S.entries.push({id:'u'+Date.now(),agent,month,week,score,categories:cats,notes,source:'manual'});toast('Entry saved');}
-  save();closeModal();redraw();
+  if(S.editId){const i=S.entries.findIndex(e=>e.id===S.editId);if(i>=0)S.entries[i]={...S.entries[i],agent,month,week,score,categories:cats,notes};}
+  else{S.entries.push({id:'u'+Date.now(),agent,month,week,score,categories:cats,notes,source:'manual'});}
+  persist(()=>{toast(S.editId?'Entry updated':'Entry saved');});closeModal();redraw();
 }
-function deleteEntry(id){if(!confirm('Delete this entry?'))return;S.entries=S.entries.filter(e=>e.id!==id);save();renderEntries();buildKPIs();toast('Entry deleted');}
+function deleteEntry(id){if(!confirm('Delete this entry?'))return;S.entries=S.entries.filter(e=>e.id!==id);persist(()=>toast('Entry deleted'));renderEntries();buildKPIs();}
 
 // ── Export / Import JSON ──
 function exportJSON(){const b=new Blob([JSON.stringify({agents:S.agents,categories:S.categories,entries:S.entries},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`qc_data_${new Date().toISOString().slice(0,10)}.json`;a.click();toast('Data exported');}
-function importJSON(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.entries&&confirm(`Import ${d.entries.length} entries? This will replace all current data.`)){S.agents=d.agents||S.agents;S.categories=d.categories||S.categories;S.entries=d.entries;S.active=new Set(S.agents);S.wAgent=S.agents[0];save();buildFilterBar();redraw();toast('Data imported');}}catch{toast('Invalid JSON file',false);}};r.readAsText(f);ev.target.value='';}
-function clearAll(){if(!confirm('Clear ALL data? This cannot be undone.'))return;S.entries=[];save();redraw();toast('All data cleared');}
+function importJSON(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.entries&&confirm(`Import ${d.entries.length} entries? This will replace all current data.`)){S.agents=d.agents||S.agents;S.categories=d.categories||S.categories;S.entries=d.entries;S.active=new Set(S.agents);S.wAgent=S.agents[0];persist(()=>toast('Data imported'));buildFilterBar();redraw();}}catch{toast('Invalid JSON file',false);}};r.readAsText(f);ev.target.value='';}
+function clearAll(){if(!confirm('Clear ALL data? This cannot be undone.'))return;S.entries=[];S.agents=[...DEFAULT_AGENTS];S.categories=[...DEFAULT_CATS];S.active=new Set(DEFAULT_AGENTS);persist(()=>toast('All data cleared'));buildFilterBar();redraw();}
 
 // ── CSV: Agent Scores ──
 function parseMonthFromStr(h){if(!h)return null;const hl=h.toLowerCase();for(const[k,v]of[['jan','Jan'],['feb','Feb'],['mar','Mar'],['apr','Apr'],['may','May'],['jun','Jun'],['jul','Jul'],['aug','Aug'],['sep','Sep'],['oct','Oct'],['nov','Nov'],['dec','Dec']])if(hl.includes(k))return v;return null;}
@@ -595,8 +755,7 @@ function importScoresCSV(ev){
         const obj={id:ei>=0?S.entries[ei].id:'csv'+Date.now()+Math.random().toString(36).slice(2,6),agent,month:m,week:wks[c],score:sc,categories:ei>=0?S.entries[ei].categories:[],notes:'',source:'scores_csv'};
         if(ei>=0){S.entries[ei]=obj;updated++;}else{S.entries.push(obj);added++;}}
     }
-    save();buildFilterBar();redraw();
-    toast(`✓ ${added} new + ${updated} updated entries${newAgents.length?' · '+newAgents.length+' new agents':''}`);
+    persist(()=>toast(`✓ ${added} new + ${updated} updated entries${newAgents.length?' · '+newAgents.length+' new agents':''}`));
   },error(){toast('Failed to parse CSV',false);}});ev.target.value='';}
 
 // ── CSV: Weekly Trend ──
@@ -626,7 +785,7 @@ function importWeeklyCSV(ev){
         const obj={id:ei>=0?S.entries[ei].id:'wcsv'+Date.now()+Math.random().toString(36).slice(2,6),agent,month:m,week:wl,score:avg,categories:[...g.cats],notes:`${g.scores.length} call(s)`,source:'weekly_csv'};
         if(ei>=0)S.entries[ei]=obj;else{S.entries.push(obj);totalAdded++;}
       });
-      done++;if(done===files.length){save();buildFilterBar();redraw();toast(`✓ ${totalAdded} entries from ${totalCalls} calls · ${files.length} file(s)${newAgents.size?' · '+newAgents.size+' new agents':''}`);}
+      done++;if(done===files.length){persist(()=>toast(`✓ ${totalAdded} entries from ${totalCalls} calls · ${files.length} file(s)${newAgents.size?' · '+newAgents.size+' new agents':''}`));}
     },error(){done++;toast('Failed: '+f.name,false);}});
   });ev.target.value='';}
 
@@ -676,7 +835,7 @@ function addAgent(){
   }
   S.agents.push(name);
   S.active.add(name);
-  save();
+  persist();
   input.value='';
   msg.style.color='var(--accent2)';
   msg.textContent=`✓ "${name}" added successfully.`;
@@ -693,15 +852,33 @@ function removeAgent(name){
   if(!confirm(warning)) return;
   S.agents = S.agents.filter(a=>a!==name);
   S.active.delete(name);
-  // If weekly agent was removed, reset to first agent
   if(S.wAgent===name) S.wAgent = S.agents[0]||'';
-  save();
+  persist();
   renderAgentList();
   toast(`"${name}" removed from roster`);
 }
 
 // ── INIT ──
-load();buildKPIs();buildFilterBar();renderTrend();
+load();
+buildKPIs();
+buildFilterBar();
+renderTrend();
+
+// ── Hardcoded Firebase config — auto-connects on load ──
+(function autoConnect(){
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAzHydR5rOOjEUXTmZoy3RHy-0Zq1_wJxc",
+    authDomain: "qc-dashboard-59de3.firebaseapp.com",
+    projectId: "qc-dashboard-59de3",
+    storageBucket: "qc-dashboard-59de3.firebasestorage.app",
+    messagingSenderId: "512724628401",
+    appId: "1:512724628401:web:3573c632cc983e047d8390"
+  };
+  // Save to localStorage so manual config UI also reflects it
+  localStorage.setItem('qc_fb_config', JSON.stringify(FIREBASE_CONFIG));
+  document.getElementById('fbBanner').style.display = 'none';
+  initFirebase(FIREBASE_CONFIG);
+})();
 </script>
 </body>
 </html>
