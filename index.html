@@ -3,147 +3,155 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QC Dashboard · Call Centre 2026</title>
+<title>QC Dashboard · Gumite Team 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<!-- Firebase v9 compat (works as drop-in without bundler) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0f1117;--s1:#161b27;--s2:#1e2535;--s3:#252d40;
-  --border:#2a3347;--border2:#334060;
-  --t1:#e8ecf4;--t2:#8f9ab8;--t3:#5a6480;
-  --accent:#4a7cff;--accent2:#00c896;--warn:#f5a623;--danger:#e85454;
-  --pass:#00c896;--fail:#e85454;--caution:#f5a623;
+  --bg:#0d1117;--s1:#161b27;--s2:#1e2535;--s3:#252d40;
+  --border:#2a3347;--border2:#3a4a6a;
+  --t1:#e8ecf4;--t2:#8f9ab8;--t3:#4a5478;
+  --accent:#4f7cff;--green:#00c896;--warn:#f5a623;--red:#e85454;
   --r:10px;--r2:6px;
-  --mono:'JetBrains Mono',monospace;
-  --sans:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
 
-/* ── TOP BAR ── */
-.topbar{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:40}
-.topbar-brand{display:flex;align-items:center;gap:10px}
-.topbar-logo{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
-.topbar-title{font-size:15px;font-weight:600;color:var(--t1)}
-.topbar-sub{font-size:11px;color:var(--t3);font-family:var(--mono);margin-top:1px}
-.btn-row{display:flex;gap:6px;flex-wrap:wrap}
-.btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:6px 12px;border-radius:var(--r2);border:1px solid var(--border2);background:var(--s2);color:var(--t2);cursor:pointer;transition:all .15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
-.btn:hover{background:var(--s3);color:var(--t1);border-color:var(--border2)}
+/* TOP BAR */
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:40}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--green));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.brand-title{font-size:15px;font-weight:600}
+.brand-sub{font-size:11px;color:var(--t3);font-family:var(--mono);margin-top:1px}
+.btn-row{display:flex;gap:5px;flex-wrap:wrap}
+.btn{font-family:var(--sans);font-size:11px;font-weight:500;padding:6px 11px;border-radius:var(--r2);border:1px solid var(--border2);background:var(--s2);color:var(--t2);cursor:pointer;transition:all .15s;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.btn:hover{background:var(--s3);color:var(--t1)}
 .btn-accent{background:var(--accent);color:#fff;border-color:var(--accent)}
-.btn-accent:hover{background:#5a8aff;border-color:#5a8aff;color:#fff}
-.btn-green{background:var(--accent2);color:#0f1117;border-color:var(--accent2);font-weight:600}
-.btn-green:hover{background:#00dba6;border-color:#00dba6;color:#0f1117}
+.btn-accent:hover{background:#6a91ff;color:#fff}
+.btn-green{background:var(--green);color:#0d1117;border-color:var(--green);font-weight:600}
+.btn-green:hover{background:#00dba6;color:#0d1117}
+.btn-red{color:var(--red);border-color:#e8545433}
+.btn-red:hover{background:var(--red);color:#fff}
 
-/* ── LAYOUT ── */
-.main{padding:20px;max-width:1440px;margin:0 auto}
+/* STATUS BAR */
+.status-bar{padding:6px 20px;display:none;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;font-family:var(--mono)}
+.status-bar.visible{display:flex}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 
-/* ── KPI ROW ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+/* MAIN */
+.main{padding:16px 20px;max-width:1440px;margin:0 auto}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:14px}
 .kpi{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;position:relative;overflow:hidden}
-.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--green))}
 .kpi-l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin-bottom:5px}
-.kpi-v{font-size:26px;font-weight:600;color:var(--t1);line-height:1}
-.kpi-s{font-size:11px;color:var(--t3);margin-top:4px}
+.kpi-v{font-size:24px;font-weight:600;line-height:1}
+.kpi-s{font-size:10px;color:var(--t3);margin-top:4px}
 
-/* ── DATA BAR ── */
-.databar{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.databar-info{font-size:11px;color:var(--t3);font-family:var(--mono);flex:1;min-width:140px}
-.databar-info span{color:var(--accent2)}
+/* DATA BAR */
+.databar{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;margin-bottom:12px;display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.databar-info{font-size:11px;color:var(--t3);font-family:var(--mono);flex:1;min-width:120px}
+.databar-info span{color:var(--green)}
 
-/* ── AGENT FILTER ── */
-.filter-bar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;align-items:center}
-.filter-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;font-family:var(--mono);margin-right:4px}
-.pill{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--t3);cursor:pointer;font-family:var(--sans);transition:all .15s}
+/* FILTER PILLS */
+.filter-bar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;align-items:center}
+.filter-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;font-family:var(--mono);margin-right:3px}
+.pill{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--t3);cursor:pointer;transition:all .15s}
 .pill.on{color:#fff;border-color:transparent}
 .pill:hover:not(.on){border-color:var(--border2);color:var(--t2)}
 
-/* ── TABS ── */
-.tab-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:16px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:4px}
-.tab{font-size:12px;font-weight:500;padding:6px 14px;border-radius:var(--r2);border:none;background:transparent;color:var(--t3);cursor:pointer;font-family:var(--sans);white-space:nowrap;transition:all .15s}
+/* TABS */
+.tab-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:14px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:4px}
+.tab{font-size:11px;font-weight:500;padding:6px 13px;border-radius:var(--r2);border:none;background:transparent;color:var(--t3);cursor:pointer;font-family:var(--sans);white-space:nowrap;transition:all .15s}
 .tab.on{background:var(--accent);color:#fff}
 .tab:hover:not(.on){background:var(--s2);color:var(--t1)}
 
-/* ── CARDS ── */
-.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px}
-.card-t{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:700px){.g2{grid-template-columns:1fr}}
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.card-t{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:680px){.g2{grid-template-columns:1fr}}
 
-/* ── LEGEND ── */
-.leg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+/* LEGEND */
+.leg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .leg span{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2)}
 .ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.ldash{width:16px;height:0;border-top:2px dashed var(--danger);flex-shrink:0}
+.ldash{width:16px;height:0;border-top:2px dashed var(--red);flex-shrink:0}
 
-/* ── TABLES ── */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{font-size:10px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;font-family:var(--mono)}
-td{padding:7px 9px;border-bottom:1px solid var(--border);color:var(--t1);vertical-align:middle}
+/* TABLES */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{font-size:10px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;font-family:var(--mono)}
+td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--t1);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--s2)}
 .bdg{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500;font-family:var(--mono)}
-.bp{background:#00c89620;color:var(--pass);border:1px solid #00c89640}
-.bf{background:#e8545420;color:var(--fail);border:1px solid #e8545440}
-.bw{background:#f5a62320;color:var(--caution);border:1px solid #f5a62340}
+.bp{background:#00c89620;color:var(--green);border:1px solid #00c89640}
+.bf{background:#e8545420;color:var(--red);border:1px solid #e8545440}
+.bw{background:#f5a62320;color:var(--warn);border:1px solid #f5a62340}
 .bn{background:var(--s2);color:var(--t3);border:1px solid var(--border)}
-.bar-c{display:flex;align-items:center;gap:6px}
-.bar-t{flex:1;height:5px;background:var(--s3);border-radius:3px;overflow:hidden;min-width:30px}
+.bar-c{display:flex;align-items:center;gap:5px}
+.bar-t{flex:1;height:5px;background:var(--s3);border-radius:3px;overflow:hidden;min-width:28px}
 .bar-f{height:100%;border-radius:3px;background:var(--accent)}
 
-/* ── RECOMMENDATIONS ── */
-.rec{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px;border-left:3px solid}
+/* RECS */
+.rec{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;border-left:3px solid}
+.rec.urgent{border-left-color:var(--red)}
+.rec.warning{border-left-color:var(--warn)}
+.rec.good{border-left-color:var(--green)}
+.rec.info{border-left-color:var(--accent)}
 .rec-title{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:4px}
 .rec-body{font-size:12px;color:var(--t2);line-height:1.7}
-.rec.urgent{border-left-color:var(--danger)}
-.rec.warning{border-left-color:var(--caution)}
-.rec.good{border-left-color:var(--pass)}
-.rec.info{border-left-color:var(--accent)}
-.abubble{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;margin:2px 2px 4px;color:#fff;font-weight:500}
+.abubble{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;margin:2px;color:#fff;font-weight:500}
 
-/* ── MODAL ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);z-index:60;display:none;align-items:center;justify-content:center;padding:16px}
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);z-index:60;display:none;align-items:center;justify-content:center;padding:14px}
 .overlay.open{display:flex}
-.modal{background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:20px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto}
-.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.modal-title{font-size:16px;font-weight:600;color:var(--t1)}
-.modal-x{background:var(--s3);border:1px solid var(--border);color:var(--t2);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0}
+.modal{background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:18px;width:100%;max-width:540px;max-height:88vh;overflow-y:auto}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.modal-title{font-size:15px;font-weight:600}
+.modal-x{background:var(--s3);border:1px solid var(--border);color:var(--t2);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center}
 .modal-x:hover{color:var(--t1)}
-.fg{margin-bottom:12px}
-.fl{display:block;font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
-.fi,.fs{width:100%;background:var(--s3);border:1px solid var(--border);border-radius:var(--r2);color:var(--t1);font-family:var(--sans);font-size:13px;padding:8px 11px;outline:none;transition:border .15s}
+.fg{margin-bottom:10px}
+.fl{display:block;font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.fi,.fs{width:100%;background:var(--s3);border:1px solid var(--border);border-radius:var(--r2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:7px 10px;outline:none;transition:border .15s}
 .fi:focus,.fs:focus{border-color:var(--accent)}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(max-width:480px){.frow{grid-template-columns:1fr}}
-.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px;max-height:260px;overflow-y:auto;padding-right:4px}
-.cat-chk{display:flex;align-items:center;gap:6px;background:var(--s3);border:1px solid var(--border);border-radius:var(--r2);padding:6px 9px;cursor:pointer;transition:border .15s}
+@media(max-width:460px){.frow{grid-template-columns:1fr}}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:3px;max-height:240px;overflow-y:auto}
+.cat-chk{display:flex;align-items:flex-start;gap:6px;background:var(--s3);border:1px solid var(--border);border-radius:var(--r2);padding:5px 8px;cursor:pointer;transition:border .15s}
 .cat-chk:hover,.cat-chk.ck{border-color:var(--accent)}
-.cat-chk.ck{background:#4a7cff12}
-.cat-chk input{accent-color:var(--accent);width:12px;height:12px;flex-shrink:0}
-.cat-chk span{font-size:11px;color:var(--t2)}
+.cat-chk.ck{background:#4f7cff12}
+.cat-chk input{accent-color:var(--accent);width:12px;height:12px;flex-shrink:0;margin-top:1px}
+.cat-chk span{font-size:11px;color:var(--t2);line-height:1.3}
 .cat-chk.ck span{color:var(--t1)}
-.modal-ftr{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.modal-ftr{display:flex;gap:7px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.divider{border-top:1px solid var(--border);margin:12px 0}
+.agent-row{display:flex;align-items:center;gap:8px;background:var(--s3);border:1px solid var(--border);border-radius:var(--r2);padding:8px 11px;margin-bottom:4px}
+.agent-row-info{flex:1;min-width:0}
+.agent-row-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-row-meta{font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:1px}
 
-/* ── TOAST ── */
-.toast{position:fixed;bottom:20px;right:20px;background:var(--accent);color:#fff;padding:10px 16px;border-radius:var(--r2);font-size:12px;font-weight:500;z-index:100;transform:translateY(60px);opacity:0;transition:all .25s;font-family:var(--sans)}
+/* TOAST */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--accent);color:#fff;padding:9px 14px;border-radius:var(--r2);font-size:12px;font-weight:500;z-index:100;transform:translateY(60px);opacity:0;transition:all .25s}
 .toast.show{transform:translateY(0);opacity:1}
-
-code{background:var(--s3);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:11px;color:var(--accent2)}
+code{background:var(--s3);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:11px;color:var(--green)}
 </style>
 </head>
 <body>
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <div class="topbar-brand">
-    <div class="topbar-logo">QC</div>
+  <div class="brand">
+    <div class="logo">QC</div>
     <div>
-      <div class="topbar-title">QC Performance Dashboard</div>
-      <div class="topbar-sub" id="topSub">Call Centre · Jan–Jun 2026 · Target ≥ 85%</div>
+      <div class="brand-title">QC Performance Dashboard · Gumite Team</div>
+      <div class="brand-sub" id="topSub">2026 · Target ≥ 85%</div>
     </div>
   </div>
   <div class="btn-row">
@@ -158,46 +166,10 @@ code{background:var(--s3);border:1px solid var(--border);border-radius:3px;paddi
   </div>
 </div>
 
-<!-- Firebase config banner — shown until user pastes their config -->
-<div id="fbBanner" style="display:none;background:#1a1040;border-bottom:2px solid #f5a623;padding:12px 20px;align-items:center;flex-wrap:wrap;gap:10px">
-  <span style="font-size:13px;color:#f5a623;font-weight:600">🔥 Firebase not configured</span>
-  <span style="font-size:12px;color:#c8b8f0;flex:1;min-width:200px">Paste your Firebase config below to enable cross-device sync. <a href="#" onclick="document.getElementById('fbSetupCard').style.display='';document.getElementById('fbBanner').style.display='none';return false" style="color:#f5a623;text-decoration:underline">Set up now →</a></span>
-  <button class="btn" style="font-size:11px;padding:4px 10px;color:#f5a623;border-color:#f5a62344" onclick="document.getElementById('fbBanner').style.display='none'">Dismiss (use local only)</button>
-</div>
-
-<!-- Firebase setup card -->
-<div id="fbSetupCard" style="display:none;background:#1a1040;border-bottom:2px solid #7c3aed;padding:16px 20px">
-  <div style="max-width:700px">
-    <div style="font-size:14px;font-weight:600;color:#f5a623;margin-bottom:8px">🔥 Firebase Setup — 3 minutes, free forever</div>
-    <ol style="font-size:12px;color:#c8b8f0;line-height:2;padding-left:18px;margin-bottom:12px">
-      <li>Go to <a href="https://console.firebase.google.com" target="_blank" style="color:#f5a623">console.firebase.google.com</a> → <b>Add project</b> → name it (e.g. "qc-dashboard") → Continue</li>
-      <li>In your project: click <b>Firestore Database</b> → <b>Create database</b> → choose <b>Start in test mode</b> → Next → Enable</li>
-      <li>Click the ⚙ gear icon → <b>Project settings</b> → scroll to <b>Your apps</b> → click <b>&lt;/&gt; Web</b> → register app → copy the <code>firebaseConfig</code> object</li>
-      <li>Paste it in the box below and click <b>Save & Connect</b></li>
-    </ol>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <textarea id="fbConfigInput" style="flex:1;min-width:280px;height:110px;background:#0f0a2a;border:1px solid #7c3aed;border-radius:6px;color:#e2d9f3;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px;outline:none;resize:vertical" placeholder='Paste your firebaseConfig object here, e.g.:
-{
-  apiKey: "AIza...",
-  authDomain: "your-app.firebaseapp.com",
-  projectId: "your-app",
-  ...
-}'></textarea>
-      <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end">
-        <button class="btn btn-accent" onclick="saveFirebaseConfig()" style="white-space:nowrap">💾 Save & Connect</button>
-        <button class="btn" onclick="document.getElementById('fbSetupCard').style.display='none'" style="font-size:11px">Cancel</button>
-        <button class="btn" style="font-size:11px;color:var(--danger);border-color:#e8545444" onclick="clearFirebaseConfig()">Remove config</button>
-      </div>
-    </div>
-    <div id="fbConfigMsg" style="font-size:11px;margin-top:8px;color:var(--accent2)"></div>
-  </div>
-</div>
-
-<!-- Firebase status bar (shown when connected) -->
-<div id="fbStatusBar" style="display:none;background:#0a2010;border-bottom:1px solid #00c89644;padding:7px 20px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
-  <span id="fbStatusDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00c896;flex-shrink:0"></span>
-  <span id="fbStatusText" style="font-size:11px;color:#00c896;font-family:'JetBrains Mono',monospace;flex:1">Connected to Firebase</span>
-  <button class="btn" style="font-size:10px;padding:3px 8px" onclick="document.getElementById('fbSetupCard').style.display='';document.getElementById('fbStatusBar').style.display='none'">⚙ Config</button>
+<!-- FIREBASE STATUS -->
+<div class="status-bar" id="statusBar" style="background:var(--s1);border-bottom:1px solid var(--border)">
+  <span class="status-dot" id="statusDot"></span>
+  <span id="statusText" style="color:var(--t2)">Connecting…</span>
 </div>
 
 <div class="main">
@@ -205,128 +177,86 @@ code{background:var(--s3);border:1px solid var(--border);border-radius:3px;paddi
   <!-- KPIs -->
   <div class="kpi-grid" id="kpiGrid"></div>
 
-  <!-- Data bar -->
+  <!-- DATA BAR -->
   <div class="databar">
-    <div class="databar-info">📊 <span id="entryCount">0</span> entries · <span id="monthCount">0</span> months · auto-saved to browser</div>
-    <button class="btn" style="font-size:11px;padding:4px 10px" onclick="openAgentsModal()">👥 Manage Agents</button>
-    <button class="btn" style="font-size:11px;padding:4px 10px" onclick="toggleGithubTip()">ℹ GitHub Pages tip</button>
-    <button class="btn" style="font-size:11px;padding:4px 10px;color:var(--danger);border-color:#e8545444" onclick="clearAll()">🗑 Clear all</button>
-  </div>
-  <div id="githubTip" style="display:none" class="card">
-    <div class="card-t">Using this on GitHub Pages</div>
-    <p style="font-size:12px;color:var(--t2);line-height:1.7">Data is stored in your <b>browser's localStorage</b> — it persists when you close and reopen the file on the same device, but won't sync across devices automatically. GitHub Pages is read-only and cannot write back to your repo.<br><br>
-    <b>Best practice:</b> after each session, click <b>⬇ Export JSON</b> and commit the file to your repo (e.g. <code>data/qc_data.json</code>). On any new device, click <b>⬆ Import JSON</b> to restore. This gives you full version control of your data alongside your code.</p>
+    <div class="databar-info">📊 <span id="entryCount">0</span> entries · <span id="monthCount">0</span> months · Firebase sync enabled</div>
+    <button class="btn" onclick="openAgentsModal()">👥 Manage Agents</button>
+    <button class="btn btn-red" onclick="clearAll()">🗑 Clear all data</button>
   </div>
 
-  <!-- Agent filter -->
-  <div class="filter-bar" id="filterBar">
-    <span class="filter-lbl">Agents:</span>
-  </div>
+  <!-- AGENT FILTER -->
+  <div class="filter-bar" id="filterBar"><span class="filter-lbl">Filter:</span></div>
 
-  <!-- Tabs -->
+  <!-- TABS -->
   <div class="tab-bar">
-    <button class="tab on" onclick="setTab('trend',this)">Monthly Trend</button>
-    <button class="tab" onclick="setTab('weekly',this)">Weekly Drill-down</button>
-    <button class="tab" onclick="setTab('errors',this)">Error Categories</button>
-    <button class="tab" onclick="setTab('scorecard',this)">Scorecard</button>
-    <button class="tab" onclick="setTab('entries',this)">All Entries</button>
-    <button class="tab" onclick="setTab('recs',this)">Recommendations</button>
+    <button class="tab on"  onclick="setTab('trend',this)">Monthly Trend</button>
+    <button class="tab"     onclick="setTab('weekly',this)">Weekly Drill-down</button>
+    <button class="tab"     onclick="setTab('errors',this)">Error Categories</button>
+    <button class="tab"     onclick="setTab('scorecard',this)">Scorecard</button>
+    <button class="tab"     onclick="setTab('entries',this)">All Entries</button>
+    <button class="tab"     onclick="setTab('recs',this)">Recommendations</button>
   </div>
 
-  <!-- TAB: Monthly Trend -->
+  <!-- Monthly Trend -->
   <div id="pTrend">
     <div class="card">
-      <div class="card-t">Monthly QC average per agent — 85% target line</div>
+      <div class="card-t">Monthly QC average — target ≥ 85%</div>
       <div class="leg" id="trendLeg"></div>
-      <div style="position:relative;height:300px"><canvas id="trendC"></canvas></div>
+      <div style="position:relative;height:290px"><canvas id="trendC"></canvas></div>
     </div>
   </div>
 
-  <!-- TAB: Weekly -->
+  <!-- Weekly Drill-down -->
   <div id="pWeekly" style="display:none">
     <div class="card">
-      <div class="card-t">Week-by-week QC score — select an agent</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px" id="wPills"></div>
+      <div class="card-t">Week-by-week QC — select agent</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px" id="wPills"></div>
       <div class="leg"><span><span class="ldash"></span>85% target</span></div>
-      <div style="position:relative;height:300px"><canvas id="weeklyC"></canvas></div>
+      <div style="position:relative;height:290px"><canvas id="weeklyC"></canvas></div>
     </div>
   </div>
 
-  <!-- TAB: Errors -->
+  <!-- Error Categories -->
   <div id="pErrors" style="display:none">
     <div class="g2">
       <div class="card">
-        <div class="card-t">Error category frequency — selected agents</div>
-        <div id="errWrap" style="position:relative;height:380px"><canvas id="errC"></canvas></div>
+        <div class="card-t">Error frequency — selected agents</div>
+        <div id="errWrap" style="position:relative;height:360px"><canvas id="errC"></canvas></div>
       </div>
       <div class="card">
         <div class="card-t">Errors by agent</div>
-        <div class="tbl-wrap"><table id="errTbl"><thead></thead><tbody></tbody></table></div>
+        <div class="tw"><table id="errTbl"><thead></thead><tbody></tbody></table></div>
       </div>
     </div>
   </div>
 
-  <!-- TAB: Scorecard -->
+  <!-- Scorecard -->
   <div id="pScorecard" style="display:none">
     <div class="card">
-      <div class="card-t">QC scorecard — monthly averages with trend indicator</div>
-      <div class="tbl-wrap"><table id="scTbl"><thead></thead><tbody></tbody></table></div>
+      <div class="card-t">QC Scorecard — monthly averages</div>
+      <div class="tw"><table id="scTbl"><thead></thead><tbody></tbody></table></div>
     </div>
   </div>
 
-  <!-- TAB: All Entries -->
+  <!-- All Entries -->
   <div id="pEntries" style="display:none">
     <div class="card">
       <div class="card-t">All entries <span id="eCount" style="font-weight:400;color:var(--t3)"></span></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <input class="fi" style="max-width:200px" placeholder="Search agent, week, category…" oninput="renderEntries()" id="eSearch">
-        <select class="fs" style="max-width:130px" onchange="renderEntries()" id="eMonth"><option value="">All months</option></select>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
+        <input class="fi" style="max-width:190px" placeholder="Search agent, week…" oninput="renderEntries()" id="eSearch">
+        <select class="fs" style="max-width:120px" onchange="renderEntries()" id="eMonth"><option value="">All months</option></select>
         <select class="fs" style="max-width:160px" onchange="renderEntries()" id="eAgent"><option value="">All agents</option></select>
       </div>
-      <div class="tbl-wrap"><table id="eTbl"><thead></thead><tbody></tbody></table></div>
+      <div class="tw"><table id="eTbl"><thead></thead><tbody></tbody></table></div>
     </div>
   </div>
 
-  <!-- TAB: Recommendations -->
+  <!-- Recommendations -->
   <div id="pRecs" style="display:none"></div>
 
 </div><!-- /main -->
 
-<!-- Manage Agents Modal -->
-<div class="overlay" id="agentsModal">
-  <div class="modal" style="max-width:480px">
-    <div class="modal-hdr">
-      <div class="modal-title">👥 Manage Agents</div>
-      <button class="modal-x" onclick="closeAgentsModal()">×</button>
-    </div>
-
-    <!-- Add new agent -->
-    <div class="fg">
-      <label class="fl">Add new agent</label>
-      <div style="display:flex;gap:8px">
-        <input class="fi" id="newAgentInput" placeholder="Full name e.g. Jane Nakato" style="flex:1"
-          onkeydown="if(event.key==='Enter')addAgent()">
-        <button class="btn btn-accent" onclick="addAgent()" style="white-space:nowrap">Add Agent</button>
-      </div>
-      <div id="addAgentMsg" style="font-size:11px;margin-top:5px;color:var(--accent2)"></div>
-    </div>
-
-    <!-- Divider -->
-    <div style="border-top:1px solid var(--border);margin:14px 0"></div>
-
-    <!-- Current agents list -->
-    <div class="fg">
-      <label class="fl">Current agents (<span id="agentCountLabel">0</span>)</label>
-      <div id="agentListContainer" style="display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;padding-right:2px"></div>
-    </div>
-
-    <div class="modal-ftr">
-      <button class="btn btn-accent" onclick="closeAgentsModal()">Done</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add/Edit Entry Modal -->
+<!-- ADD/EDIT ENTRY MODAL -->
 <div class="overlay" id="modal">
   <div class="modal">
     <div class="modal-hdr">
@@ -338,23 +268,49 @@ code{background:var(--s3);border:1px solid var(--border);border-radius:3px;paddi
       <div class="fg"><label class="fl">Month *</label>
         <select class="fs" id="fMonth">
           <option>Jan</option><option>Feb</option><option>Mar</option><option>Apr</option>
-          <option>May</option><option>Jun</option><option>Jul</option><option>Aug</option>
+          <option>May</option><option>Jun</option><option selected>Jul</option><option>Aug</option>
           <option>Sep</option><option>Oct</option><option>Nov</option><option>Dec</option>
         </select>
       </div>
     </div>
     <div class="frow">
-      <div class="fg"><label class="fl">Week / Period *</label><input class="fi" id="fWeek" placeholder="e.g. 20th–26th Jun"></div>
-      <div class="fg"><label class="fl">QC Score (%) *</label><input class="fi" id="fScore" type="number" min="0" max="120" step="0.01" placeholder="e.g. 87.5"></div>
+      <div class="fg"><label class="fl">Week / Period *</label><input class="fi" id="fWeek" placeholder="e.g. 04th Jul - 10th Jul"></div>
+      <div class="fg"><label class="fl">QC Score (%) *</label><input class="fi" id="fScore" type="number" min="0" max="120" step="0.01" placeholder="e.g. 92.5"></div>
     </div>
     <div class="fg">
       <label class="fl">Error categories (tick all that apply)</label>
       <div class="cat-grid" id="fCatGrid"></div>
     </div>
-    <div class="fg"><label class="fl">Notes (optional)</label><input class="fi" id="fNotes" placeholder="Any additional context…"></div>
+    <div class="fg"><label class="fl">Notes (optional)</label><input class="fi" id="fNotes" placeholder="Any context…"></div>
     <div class="modal-ftr">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-accent" onclick="saveEntry()" id="saveBtn">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANAGE AGENTS MODAL -->
+<div class="overlay" id="agentsModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-hdr">
+      <div class="modal-title">👥 Manage Agents</div>
+      <button class="modal-x" onclick="closeAgentsModal()">×</button>
+    </div>
+    <div class="fg">
+      <label class="fl">Add new agent</label>
+      <div style="display:flex;gap:7px">
+        <input class="fi" id="newAgentInput" placeholder="Full name" style="flex:1" onkeydown="if(event.key==='Enter')addAgent()">
+        <button class="btn btn-accent" onclick="addAgent()">Add</button>
+      </div>
+      <div id="addAgentMsg" style="font-size:11px;margin-top:5px;min-height:16px"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="fg">
+      <label class="fl">Current agents (<span id="agentCountLbl">0</span>)</label>
+      <div id="agentListEl" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-accent" onclick="closeAgentsModal()">Done</button>
     </div>
   </div>
 </div>
@@ -363,522 +319,529 @@ code{background:var(--s3);border:1px solid var(--border);border-radius:3px;paddi
 
 <script>
 // ══════════════════════════════════════════════════════
-//  CONSTANTS
+//  CONFIG & CONSTANTS
 // ══════════════════════════════════════════════════════
-const MONTHS_ORD=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const PAL=['#4a7cff','#00c896','#f5a623','#2bd9c8','#a855f7','#e85454','#f97316','#0ea5e9','#84cc16'];
-const DASHES=[[],[6,3],[3,3],[8,3,3,3],[5,2],[10,3],[4,4],[6,2,2,2],[]];
-const POSITIVE=['good interaction','good negotiation','outstanding','all information requested from n/k','call cut and phoned back'];
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAzHydR5rOOjEUXTmZoy3RHy-0Zq1_wJxc",
+  authDomain: "qc-dashboard-59de3.firebaseapp.com",
+  projectId: "qc-dashboard-59de3",
+  storageBucket: "qc-dashboard-59de3.firebasestorage.app",
+  messagingSenderId: "512724628401",
+  appId: "1:512724628401:web:3573c632cc983e047d8390"
+};
+const FB_COL = 'qc_gumite', FB_DOC = 'data';
 
-const DEFAULT_AGENTS=['Elizabeth Kemigisa','Kenneth Birungi','Violla Babirye','Gloria Nahirya','Nabyonga Racheal Kisakye','David Wasen','Angella Athieno','Fortunate Nahurira','Manita Joan'];
-const DEFAULT_CATS=['Script not followed',"Didn't mention consequences and benefits",'All information not given','Not all information requested from the N/K','No negotiation','No note','No consistent greeting',"Didn't mention name / surname",'No Probing','No introduction','Spoke with another agent while on a call with a client','Language','Interruption','Dropped call while clients still on the line','No Empathy','Note does not correspond with call conversation',"Call cut, didn't call back",'Unclear communication','Not prepared','Incomplete notes','Lack of knowledge','Confused','Sounds','Call too long','Client on hold for too long',"Client said \"hello\" more than once","Didn't adhere to Core Values","Didn't own the call",'Disappear from the call','Disclose the loan amount to a non client','Fillers','Ignored client','Mouthpiece not set correctly before phoning the client','No confidence','No indication of the call to be transferred','No power in voice','Not apologetic',"Not this agents' extension",'Owned the call','Raised the voice','Repeats','Rushed conversation','No Sympathy','Unifi not Unifi credit'];
+const MONTHS_ORD = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const PAL = ['#4f7cff','#00c896','#f5a623','#2bd9c8','#a855f7','#e85454','#f97316','#0ea5e9','#84cc16','#ec4899'];
+const DASHES = [[],[6,3],[3,3],[8,3,3,3],[5,2],[10,3],[4,4],[6,2,2,2],[],[5,5]];
 
-// ── SEED DATA (182 entries from Jan–Jun CSVs) ──
-const SEED={"entries":[{"id":"o1","agent":"Elizabeth Kemigisa","month":"Jan","week":"03rd-09th Jan","score":75.0,"categories":[],"notes":"","source":"imported"},{"id":"o2","agent":"Elizabeth Kemigisa","month":"Jan","week":"10th-16th Jan","score":75.0,"categories":[],"notes":"","source":"imported"},{"id":"o3","agent":"Elizabeth Kemigisa","month":"Jan","week":"17th-23rd Jan","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o4","agent":"Elizabeth Kemigisa","month":"Jan","week":"24th-30th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o5","agent":"Elizabeth Kemigisa","month":"Feb","week":"31st-06th Feb","score":75.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o6","agent":"Elizabeth Kemigisa","month":"Feb","week":"07th-13th Feb","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o7","agent":"Elizabeth Kemigisa","month":"Feb","week":"14th-20th Feb","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o8","agent":"Elizabeth Kemigisa","month":"Feb","week":"21st-27th Feb","score":80.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o9","agent":"Elizabeth Kemigisa","month":"Mar","week":"28th-06th Mar","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o10","agent":"Elizabeth Kemigisa","month":"Mar","week":"07th-13th Mar","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o11","agent":"Elizabeth Kemigisa","month":"Mar","week":"14th-21st Mar","score":78.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o12","agent":"Elizabeth Kemigisa","month":"Mar","week":"21st-27th Mar","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o13","agent":"Elizabeth Kemigisa","month":"Apr","week":"28th-03rd Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o14","agent":"Elizabeth Kemigisa","month":"Apr","week":"04th-10th Apr","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o15","agent":"Elizabeth Kemigisa","month":"Apr","week":"11th-17th Apr","score":75.0,"categories":["Didn't mention consequences and benefits","No consistent greeting"],"notes":"","source":"imported"},{"id":"o16","agent":"Elizabeth Kemigisa","month":"Apr","week":"18th-24th Apr","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o17","agent":"Elizabeth Kemigisa","month":"Apr","week":"25th-30th Apr","score":101.25,"categories":[],"notes":"","source":"imported"},{"id":"o18","agent":"Elizabeth Kemigisa","month":"May","week":"01st-08th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o19","agent":"Elizabeth Kemigisa","month":"May","week":"09th-15th May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o20","agent":"Elizabeth Kemigisa","month":"May","week":"16th-22nd May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o21","agent":"Elizabeth Kemigisa","month":"May","week":"23rd-29th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"n150","agent":"Elizabeth Kemigisa","month":"Jun","week":"30th May-05th Jun","score":92.5,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n151","agent":"Elizabeth Kemigisa","month":"Jun","week":"06th-12th Jun","score":86.25,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"n152","agent":"Elizabeth Kemigisa","month":"Jun","week":"13th-19th Jun","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"n153","agent":"Elizabeth Kemigisa","month":"Jun","week":"20th-26th Jun","score":40.0,"categories":["Language","Dropped call while clients still on the line","Spoke with another agent while on a call with a client","Interruption"],"notes":"","source":"imported"},{"id":"o22","agent":"Kenneth Birungi","month":"Jan","week":"03rd-09th Jan","score":85.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o23","agent":"Kenneth Birungi","month":"Jan","week":"10th-16th Jan","score":85.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o24","agent":"Kenneth Birungi","month":"Jan","week":"17th-23rd Jan","score":85.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o25","agent":"Kenneth Birungi","month":"Jan","week":"24th-30th Jan","score":102.5,"categories":[],"notes":"","source":"imported"},{"id":"o26","agent":"Kenneth Birungi","month":"Feb","week":"31st-06th Feb","score":85.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o27","agent":"Kenneth Birungi","month":"Feb","week":"07th-13th Feb","score":85.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o28","agent":"Kenneth Birungi","month":"Feb","week":"21st-27th Feb","score":85.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o29","agent":"Kenneth Birungi","month":"Mar","week":"28th-06th Mar","score":88.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o30","agent":"Kenneth Birungi","month":"Mar","week":"07th-13th Mar","score":92.5,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o31","agent":"Kenneth Birungi","month":"Mar","week":"14th-21st Mar","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o32","agent":"Kenneth Birungi","month":"Mar","week":"21st-27th Mar","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o33","agent":"Kenneth Birungi","month":"Apr","week":"28th-03rd Apr","score":82.0,"categories":["Script not followed","Not all information requested from the N/K"],"notes":"","source":"imported"},{"id":"o34","agent":"Kenneth Birungi","month":"Apr","week":"04th-10th Apr","score":70.0,"categories":["Script not followed","Didn't mention consequences and benefits","No Probing"],"notes":"","source":"imported"},{"id":"o35","agent":"Kenneth Birungi","month":"Apr","week":"11th-17th Apr","score":92.5,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o36","agent":"Kenneth Birungi","month":"Apr","week":"18th-24th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o37","agent":"Kenneth Birungi","month":"Apr","week":"25th-30th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o38","agent":"Kenneth Birungi","month":"May","week":"01st-08th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o39","agent":"Kenneth Birungi","month":"May","week":"09th-15th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o40","agent":"Kenneth Birungi","month":"May","week":"16th-22nd May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o41","agent":"Kenneth Birungi","month":"May","week":"23rd-29th May","score":78.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n154","agent":"Kenneth Birungi","month":"Jun","week":"30th May-05th Jun","score":93.75,"categories":["No negotiation"],"notes":"","source":"imported"},{"id":"n155","agent":"Kenneth Birungi","month":"Jun","week":"06th-12th Jun","score":88.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n156","agent":"Kenneth Birungi","month":"Jun","week":"13th-19th Jun","score":80.0,"categories":["No note","Spoke with another agent while on a call with a client"],"notes":"","source":"imported"},{"id":"n157","agent":"Kenneth Birungi","month":"Jun","week":"20th-26th Jun","score":80.0,"categories":["Script not followed","Call cut, didn't call back"],"notes":"","source":"imported"},{"id":"o42","agent":"Violla Babirye","month":"Mar","week":"21st-27th Mar","score":93.75,"categories":[],"notes":"","source":"imported"},{"id":"o43","agent":"Violla Babirye","month":"Apr","week":"28th-03rd Apr","score":93.75,"categories":[],"notes":"","source":"imported"},{"id":"o44","agent":"Violla Babirye","month":"Apr","week":"04th-10th Apr","score":85.0,"categories":["Not prepared"],"notes":"","source":"imported"},{"id":"o45","agent":"Violla Babirye","month":"Apr","week":"11th-17th Apr","score":85.0,"categories":["Not prepared"],"notes":"","source":"imported"},{"id":"o46","agent":"Violla Babirye","month":"Apr","week":"18th-24th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o47","agent":"Violla Babirye","month":"Apr","week":"25th-30th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o48","agent":"Violla Babirye","month":"May","week":"01st-08th May","score":91.67,"categories":[],"notes":"","source":"imported"},{"id":"o49","agent":"Violla Babirye","month":"May","week":"09th-15th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o50","agent":"Violla Babirye","month":"May","week":"16th-22nd May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o51","agent":"Violla Babirye","month":"May","week":"23rd-29th May","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"n158","agent":"Violla Babirye","month":"Jun","week":"30th May-05th Jun","score":72.5,"categories":["Script not followed","No introduction"],"notes":"","source":"imported"},{"id":"n159","agent":"Violla Babirye","month":"Jun","week":"06th-12th Jun","score":101.25,"categories":[],"notes":"","source":"imported"},{"id":"n160","agent":"Violla Babirye","month":"Jun","week":"13th-19th Jun","score":93.75,"categories":["Not all information requested from the N/K"],"notes":"","source":"imported"},{"id":"n161","agent":"Violla Babirye","month":"Jun","week":"20th-26th Jun","score":67.5,"categories":["Script not followed","Dropped call while clients still on the line"],"notes":"","source":"imported"},{"id":"o52","agent":"Gloria Nahirya","month":"Jan","week":"03rd-09th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o53","agent":"Gloria Nahirya","month":"Jan","week":"10th-16th Jan","score":102.5,"categories":[],"notes":"","source":"imported"},{"id":"o54","agent":"Gloria Nahirya","month":"Jan","week":"17th-23rd Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o55","agent":"Gloria Nahirya","month":"Jan","week":"24th-30th Jan","score":102.5,"categories":[],"notes":"","source":"imported"},{"id":"o56","agent":"Gloria Nahirya","month":"Feb","week":"31st-06th Feb","score":85.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o57","agent":"Gloria Nahirya","month":"Feb","week":"07th-13th Feb","score":85.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o58","agent":"Gloria Nahirya","month":"Feb","week":"14th-20th Feb","score":85.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o59","agent":"Gloria Nahirya","month":"Feb","week":"21st-27th Feb","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o60","agent":"Gloria Nahirya","month":"Mar","week":"28th-06th Mar","score":86.25,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o61","agent":"Gloria Nahirya","month":"Mar","week":"07th-13th Mar","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o62","agent":"Gloria Nahirya","month":"Mar","week":"14th-21st Mar","score":84.0,"categories":["Script not followed","Didn't mention name / surname"],"notes":"","source":"imported"},{"id":"o63","agent":"Gloria Nahirya","month":"Mar","week":"21st-27th Mar","score":82.0,"categories":["Script not followed","Didn't mention name / surname"],"notes":"","source":"imported"},{"id":"o64","agent":"Gloria Nahirya","month":"Apr","week":"28th-03rd Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o65","agent":"Gloria Nahirya","month":"Apr","week":"04th-10th Apr","score":72.0,"categories":["Script not followed","Didn't mention consequences and benefits","No Probing"],"notes":"","source":"imported"},{"id":"o66","agent":"Gloria Nahirya","month":"Apr","week":"11th-17th Apr","score":88.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o67","agent":"Gloria Nahirya","month":"Apr","week":"18th-24th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o68","agent":"Gloria Nahirya","month":"Apr","week":"25th-30th Apr","score":87.5,"categories":[],"notes":"","source":"imported"},{"id":"o69","agent":"Gloria Nahirya","month":"May","week":"01st-08th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o70","agent":"Gloria Nahirya","month":"May","week":"09th-15th May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o71","agent":"Gloria Nahirya","month":"May","week":"16th-22nd May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o72","agent":"Gloria Nahirya","month":"May","week":"23rd-29th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"n162","agent":"Gloria Nahirya","month":"Jun","week":"30th May-05th Jun","score":82.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n163","agent":"Gloria Nahirya","month":"Jun","week":"06th-12th Jun","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"n164","agent":"Gloria Nahirya","month":"Jun","week":"13th-19th Jun","score":83.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"n165","agent":"Gloria Nahirya","month":"Jun","week":"20th-26th Jun","score":101.25,"categories":[],"notes":"","source":"imported"},{"id":"o73","agent":"Nabyonga Racheal Kisakye","month":"Jan","week":"03rd-09th Jan","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o74","agent":"Nabyonga Racheal Kisakye","month":"Jan","week":"10th-16th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o75","agent":"Nabyonga Racheal Kisakye","month":"Jan","week":"17th-23rd Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o76","agent":"Nabyonga Racheal Kisakye","month":"Jan","week":"24th-30th Jan","score":77.5,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o77","agent":"Nabyonga Racheal Kisakye","month":"Feb","week":"31st-06th Feb","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o78","agent":"Nabyonga Racheal Kisakye","month":"Feb","week":"07th-13th Feb","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o79","agent":"Nabyonga Racheal Kisakye","month":"Feb","week":"14th-20th Feb","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o80","agent":"Nabyonga Racheal Kisakye","month":"Feb","week":"21st-27th Feb","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o81","agent":"Nabyonga Racheal Kisakye","month":"Mar","week":"28th-06th Mar","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o82","agent":"Nabyonga Racheal Kisakye","month":"Mar","week":"07th-13th Mar","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o83","agent":"Nabyonga Racheal Kisakye","month":"Mar","week":"14th-21st Mar","score":85.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o84","agent":"Nabyonga Racheal Kisakye","month":"Mar","week":"21st-27th Mar","score":80.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o85","agent":"Nabyonga Racheal Kisakye","month":"Apr","week":"28th-03rd Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o86","agent":"Nabyonga Racheal Kisakye","month":"Apr","week":"04th-10th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o87","agent":"Nabyonga Racheal Kisakye","month":"Apr","week":"11th-17th Apr","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o88","agent":"Nabyonga Racheal Kisakye","month":"Apr","week":"18th-24th Apr","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o89","agent":"Nabyonga Racheal Kisakye","month":"Apr","week":"25th-30th Apr","score":93.75,"categories":[],"notes":"","source":"imported"},{"id":"o90","agent":"Nabyonga Racheal Kisakye","month":"May","week":"01st-08th May","score":60.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o91","agent":"Nabyonga Racheal Kisakye","month":"May","week":"09th-15th May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o92","agent":"Nabyonga Racheal Kisakye","month":"May","week":"16th-22nd May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o93","agent":"Nabyonga Racheal Kisakye","month":"May","week":"23rd-29th May","score":76.0,"categories":["Didn't mention consequences and benefits","Script not followed"],"notes":"","source":"imported"},{"id":"n166","agent":"Nabyonga Racheal Kisakye","month":"Jun","week":"30th May-05th Jun","score":77.5,"categories":["No negotiation","Script not followed"],"notes":"","source":"imported"},{"id":"n167","agent":"Nabyonga Racheal Kisakye","month":"Jun","week":"06th-12th Jun","score":89.0,"categories":["No negotiation","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n168","agent":"Nabyonga Racheal Kisakye","month":"Jun","week":"13th-19th Jun","score":85.0,"categories":["No negotiation","Script not followed"],"notes":"","source":"imported"},{"id":"n169","agent":"Nabyonga Racheal Kisakye","month":"Jun","week":"20th-26th Jun","score":67.5,"categories":["No negotiation","Spoke with another agent while on a call with a client","Call cut, didn't call back"],"notes":"","source":"imported"},{"id":"o94","agent":"David Wasen","month":"Mar","week":"14th-21st Mar","score":91.67,"categories":[],"notes":"","source":"imported"},{"id":"o95","agent":"David Wasen","month":"Mar","week":"21st-27th Mar","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o96","agent":"David Wasen","month":"Apr","week":"28th-03rd Apr","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o97","agent":"David Wasen","month":"Apr","week":"04th-10th Apr","score":91.0,"categories":[],"notes":"","source":"imported"},{"id":"o98","agent":"David Wasen","month":"Apr","week":"11th-17th Apr","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o99","agent":"David Wasen","month":"Apr","week":"18th-24th Apr","score":72.5,"categories":["All information not given"],"notes":"","source":"imported"},{"id":"o100","agent":"David Wasen","month":"Apr","week":"25th-30th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o101","agent":"David Wasen","month":"May","week":"01st-08th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o102","agent":"David Wasen","month":"May","week":"09th-15th May","score":50.0,"categories":["Didn't mention consequences and benefits","No note"],"notes":"","source":"imported"},{"id":"o103","agent":"David Wasen","month":"May","week":"16th-22nd May","score":102.5,"categories":[],"notes":"","source":"imported"},{"id":"o104","agent":"David Wasen","month":"May","week":"23rd-29th May","score":101.25,"categories":[],"notes":"","source":"imported"},{"id":"n170","agent":"David Wasen","month":"Jun","week":"30th May-05th Jun","score":75.0,"categories":["All information not given","Call cut, didn't call back","Not all information requested from the N/K"],"notes":"","source":"imported"},{"id":"n171","agent":"David Wasen","month":"Jun","week":"06th-12th Jun","score":82.0,"categories":["Script not followed","No note","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n172","agent":"David Wasen","month":"Jun","week":"13th-19th Jun","score":87.5,"categories":["All information not given"],"notes":"","source":"imported"},{"id":"n173","agent":"David Wasen","month":"Jun","week":"20th-26th Jun","score":60.0,"categories":["Script not followed","Dropped call while clients still on the line","Didn't mention consequences and benefits","All information not given"],"notes":"","source":"imported"},{"id":"o105","agent":"Angella Athieno","month":"May","week":"09th-15th May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o106","agent":"Angella Athieno","month":"May","week":"16th-22nd May","score":85.0,"categories":["No Probing"],"notes":"","source":"imported"},{"id":"o107","agent":"Angella Athieno","month":"May","week":"23rd-29th May","score":92.5,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"n174","agent":"Angella Athieno","month":"Jun","week":"30th May-05th Jun","score":82.0,"categories":["No negotiation","Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n175","agent":"Angella Athieno","month":"Jun","week":"06th-12th Jun","score":84.0,"categories":["No Empathy","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n176","agent":"Angella Athieno","month":"Jun","week":"13th-19th Jun","score":101.25,"categories":[],"notes":"","source":"imported"},{"id":"n177","agent":"Angella Athieno","month":"Jun","week":"20th-26th Jun","score":82.0,"categories":["No note","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o108","agent":"Fortunate Nahurira","month":"Jan","week":"03rd-09th Jan","score":66.67,"categories":["No consistent greeting"],"notes":"","source":"imported"},{"id":"o109","agent":"Fortunate Nahurira","month":"Jan","week":"10th-16th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o110","agent":"Fortunate Nahurira","month":"Jan","week":"17th-23rd Jan","score":87.5,"categories":[],"notes":"","source":"imported"},{"id":"o111","agent":"Fortunate Nahurira","month":"Jan","week":"24th-30th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o112","agent":"Fortunate Nahurira","month":"Feb","week":"31st-06th Feb","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o113","agent":"Fortunate Nahurira","month":"Feb","week":"07th-13th Feb","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o114","agent":"Fortunate Nahurira","month":"Feb","week":"14th-20th Feb","score":60.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o115","agent":"Fortunate Nahurira","month":"Feb","week":"21st-27th Feb","score":50.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o116","agent":"Fortunate Nahurira","month":"Mar","week":"28th-06th Mar","score":75.0,"categories":["Script not followed","No consistent greeting"],"notes":"","source":"imported"},{"id":"o117","agent":"Fortunate Nahurira","month":"Mar","week":"07th-13th Mar","score":69.0,"categories":["Script not followed","All information not given"],"notes":"","source":"imported"},{"id":"o118","agent":"Fortunate Nahurira","month":"Mar","week":"14th-21st Mar","score":84.0,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"o119","agent":"Fortunate Nahurira","month":"Mar","week":"21st-27th Mar","score":72.5,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o120","agent":"Fortunate Nahurira","month":"Apr","week":"28th-03rd Apr","score":93.75,"categories":[],"notes":"","source":"imported"},{"id":"o121","agent":"Fortunate Nahurira","month":"Apr","week":"04th-10th Apr","score":95.0,"categories":[],"notes":"","source":"imported"},{"id":"o122","agent":"Fortunate Nahurira","month":"Apr","week":"11th-17th Apr","score":101.25,"categories":[],"notes":"","source":"imported"},{"id":"o123","agent":"Fortunate Nahurira","month":"Apr","week":"18th-24th Apr","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o124","agent":"Fortunate Nahurira","month":"Apr","week":"25th-30th Apr","score":102.5,"categories":[],"notes":"","source":"imported"},{"id":"o125","agent":"Fortunate Nahurira","month":"May","week":"01st-08th May","score":60.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o126","agent":"Fortunate Nahurira","month":"May","week":"09th-15th May","score":87.5,"categories":[],"notes":"","source":"imported"},{"id":"o127","agent":"Fortunate Nahurira","month":"May","week":"16th-22nd May","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o128","agent":"Fortunate Nahurira","month":"May","week":"23rd-29th May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"n178","agent":"Fortunate Nahurira","month":"Jun","week":"30th May-05th Jun","score":64.17,"categories":["No negotiation","Script not followed","Note does not correspond with call conversation","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o129","agent":"Manita Joan","month":"Jan","week":"03rd-09th Jan","score":70.0,"categories":["Script not followed","Language"],"notes":"","source":"imported"},{"id":"o130","agent":"Manita Joan","month":"Jan","week":"10th-16th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o131","agent":"Manita Joan","month":"Jan","week":"17th-23rd Jan","score":80.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o132","agent":"Manita Joan","month":"Jan","week":"24th-30th Jan","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o133","agent":"Manita Joan","month":"Feb","week":"31st-06th Feb","score":80.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o134","agent":"Manita Joan","month":"Feb","week":"07th-13th Feb","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o135","agent":"Manita Joan","month":"Feb","week":"14th-20th Feb","score":70.0,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o136","agent":"Manita Joan","month":"Feb","week":"21st-27th Feb","score":60.0,"categories":["Script not followed","Didn't mention consequences and benefits","No introduction"],"notes":"","source":"imported"},{"id":"o137","agent":"Manita Joan","month":"Mar","week":"28th-06th Mar","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o138","agent":"Manita Joan","month":"Mar","week":"07th-13th Mar","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o139","agent":"Manita Joan","month":"Mar","week":"14th-21st Mar","score":60.63,"categories":["Script not followed","Not all information requested from the N/K"],"notes":"","source":"imported"},{"id":"o140","agent":"Manita Joan","month":"Mar","week":"21st-27th Mar","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o141","agent":"Manita Joan","month":"Apr","week":"28th-03rd Apr","score":92.5,"categories":[],"notes":"","source":"imported"},{"id":"o142","agent":"Manita Joan","month":"Apr","week":"04th-10th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o143","agent":"Manita Joan","month":"Apr","week":"11th-17th Apr","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"o144","agent":"Manita Joan","month":"Apr","week":"18th-24th Apr","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o145","agent":"Manita Joan","month":"Apr","week":"25th-30th Apr","score":88.75,"categories":[],"notes":"","source":"imported"},{"id":"o146","agent":"Manita Joan","month":"May","week":"01st-08th May","score":85.0,"categories":[],"notes":"","source":"imported"},{"id":"o147","agent":"Manita Joan","month":"May","week":"09th-15th May","score":70.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o148","agent":"Manita Joan","month":"May","week":"16th-22nd May","score":63.33,"categories":["Script not followed","Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"o149","agent":"Manita Joan","month":"May","week":"23rd-29th May","score":80.0,"categories":["Didn't mention consequences and benefits"],"notes":"","source":"imported"},{"id":"n179","agent":"Manita Joan","month":"Jun","week":"30th May-05th Jun","score":100.0,"categories":[],"notes":"","source":"imported"},{"id":"n180","agent":"Manita Joan","month":"Jun","week":"06th-12th Jun","score":84.0,"categories":["Script not followed","All information not given"],"notes":"","source":"imported"},{"id":"n181","agent":"Manita Joan","month":"Jun","week":"13th-19th Jun","score":92.5,"categories":["Script not followed"],"notes":"","source":"imported"},{"id":"n182","agent":"Manita Joan","month":"Jun","week":"20th-26th Jun","score":93.75,"categories":["No negotiation"],"notes":"","source":"imported"}]};
+const DEFAULT_AGENTS = [
+  'Angella Athieno','Arthur Ssemwezi','Atusasiira Mercy',
+  'Birungi Nuwagaba','David Wasen','Flavia Nangonzi',
+  'Natasha Nakiyaga','Oliver Natoolo'
+];
+
+const DEFAULT_CATS = [
+  'All information not given',"Call cut, didn't call back",'Call too long',
+  'Client on hold for too long','Client said "hello" more than once','Confused',
+  'Didn`t adhere to Core Values','Didn`t mention consequences and benefits',
+  'Didn`t mention name / surname','Didn`t own the call','Disappear from the call',
+  'Disclose the loan amount to a non client','Dropped call while clients still on the line',
+  'Fillers','Ignored client','Interruption','Language',
+  'Mouthpiece not set correctly before phoning the client','No confidence',
+  'No consistent greeting','No Empathy','No indication of the call to be transferred',
+  'No introduction','No negotiation','No note','No power in voice',
+  'Not all information requested from the N/K','Not apologetic','Not prepared',
+  'Not this agents` extension','Note does not correspond with call conversation',
+  'Owned the call','Raised the voice','Repeats','Rushed conversation',
+  'Script not followed','Sounds','Spoke with another agent while on a call with a client',
+  'No Sympathy','Unifi not Unifi credit','Unnecessary information given',
+  'Lack of knowledge','Incomplete notes','Unclear communication','No Probing'
+];
+
+const POSITIVE_CATS = [
+  'good interaction','good negotiation','outstanding',
+  'all information requested from n/k','call cut and phoned back','owned the call'
+];
+
+// Seed data — Jul week 1 data from uploaded CSVs
+const SEED_ENTRIES = [
+  {id:'j1',agent:'Birungi Nuwagaba',month:'Jul',week:'04th Jul - 10th Jul',score:90.83,categories:['Script not followed','Didn`t mention consequences and benefits'],notes:'',source:'imported'},
+  {id:'j2',agent:'Flavia Nangonzi',month:'Jul',week:'04th Jul - 10th Jul',score:87.5,categories:['Spoke with another agent while on a call with a client','Didn`t mention consequences and benefits'],notes:'',source:'imported'},
+  {id:'j3',agent:'Natasha Nakiyaga',month:'Jul',week:'04th Jul - 10th Jul',score:100.0,categories:[],notes:'',source:'imported'},
+  {id:'j4',agent:'David Wasen',month:'Jul',week:'04th Jul - 10th Jul',score:94.0,categories:['Didn`t mention consequences and benefits'],notes:'',source:'imported'},
+  {id:'j5',agent:'Oliver Natoolo',month:'Jul',week:'04th Jul - 10th Jul',score:95.0,categories:['Script not followed'],notes:'',source:'imported'},
+  {id:'j6',agent:'Angella Athieno',month:'Jul',week:'04th Jul - 10th Jul',score:94.0,categories:['Didn`t mention consequences and benefits'],notes:'',source:'imported'}
+];
+
+// ══════════════════════════════════════════════════════
+//  WEEK NORMALISATION
+// ══════════════════════════════════════════════════════
+const WEEK_ORDER = [
+  '04th Jul - 10th Jul','11th Jul - 17th Jul','18th Jul - 24th Jul','25th Jul - 31st Jul',
+  '01st Aug - 07th Aug','08th Aug - 14th Aug','15th Aug - 21st Aug','22nd Aug - 28th Aug',
+  '29th Aug - 04th Sep','05th Sep - 11th Sep','12th Sep - 18th Sep','19th Sep - 25th Sep',
+  '26th Sep - 02nd Oct','03rd Oct - 09th Oct','10th Oct - 16th Oct','17th Oct - 23rd Oct',
+];
+
+function normWeekKey(w){
+  if(!w) return '';
+  return w.toLowerCase()
+    .replace(/\bjanuary\b/g,'jan').replace(/\bfebruary\b/g,'feb')
+    .replace(/\bmarch\b/g,'mar').replace(/\bapril\b/g,'apr')
+    .replace(/\bmay\b/g,'may').replace(/\bjune\b/g,'jun')
+    .replace(/\bjuly\b/g,'jul').replace(/\baugust\b/g,'aug')
+    .replace(/\bseptember\b/g,'sep').replace(/\boctober\b/g,'oct')
+    .replace(/\bnovember\b/g,'nov').replace(/\bdecember\b/g,'dec')
+    .replace(/[^a-z0-9]/g,'');
+}
+const WEEK_KEYS = WEEK_ORDER.map(normWeekKey);
+
+function weekIdx(w){ const k=normWeekKey(w); const i=WEEK_KEYS.indexOf(k); return i>=0?i:9999; }
+
+function canonicalWeek(raw){
+  if(!raw) return raw;
+  const k = normWeekKey(raw);
+  const i = WEEK_KEYS.indexOf(k);
+  return i>=0 ? WEEK_ORDER[i] : raw.trim();
+}
+
+function weekSortFn(x,y){
+  const xi=weekIdx(x.week), yi=weekIdx(y.week);
+  if(xi!==9999&&yi!==9999) return xi-yi;
+  if(xi!==9999) return -1; if(yi!==9999) return 1;
+  const md = MONTHS_ORD.indexOf(x.month)-MONTHS_ORD.indexOf(y.month);
+  if(md!==0) return md;
+  return parseInt((x.week||'').match(/\d+/)?.[0]||0)-parseInt((y.week||'').match(/\d+/)?.[0]||0);
+}
 
 // ══════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════
-let S={agents:[...DEFAULT_AGENTS],categories:[...DEFAULT_CATS],entries:[],active:new Set(DEFAULT_AGENTS),wAgent:DEFAULT_AGENTS[0],editId:null};
-let tC=null,wC=null,eC=null,curTab='trend';
+let S = {
+  agents:[...DEFAULT_AGENTS], categories:[...DEFAULT_CATS],
+  entries:[], active:new Set(DEFAULT_AGENTS),
+  wAgent:DEFAULT_AGENTS[0], editId:null
+};
+let db=null, fbUnsub=null, tC=null, wC=null, eC=null, curTab='trend';
 
 // ══════════════════════════════════════════════════════
 //  FIREBASE
 // ══════════════════════════════════════════════════════
-let db = null;
-let fbUnsubscribe = null;
-const FB_DOC = 'qc_dashboard/data';
-
-function saveFirebaseConfig(){
-  const raw = document.getElementById('fbConfigInput').value.trim();
-  const msg = document.getElementById('fbConfigMsg');
-  try {
-    // Strip "const firebaseConfig =" wrapper and trailing semicolon
-    let cleaned = raw
-      .replace(/^const\s+firebaseConfig\s*=\s*/, '')
-      .replace(/^var\s+firebaseConfig\s*=\s*/, '')
-      .replace(/^let\s+firebaseConfig\s*=\s*/, '')
-      .replace(/;\s*$/, '')
-      .trim();
-
-    // Use Function() to safely evaluate the JS object literal
-    // This handles unquoted keys, single quotes, trailing commas — exactly what Firebase gives you
-    const config = (new Function('return (' + cleaned + ')'))();
-
-    if (!config || !config.projectId) throw new Error('Missing projectId — make sure you copied the full config block');
-
-    localStorage.setItem('qc_fb_config', JSON.stringify(config));
-    msg.style.color = 'var(--accent2)';
-    msg.textContent = '✓ Config saved. Connecting to ' + config.projectId + '…';
-    initFirebase(config);
-  } catch(e) {
-    msg.style.color = 'var(--danger)';
-    msg.textContent = '⚠ ' + e.message;
-  }
+function setStatus(state, text){
+  const bar=document.getElementById('statusBar');
+  const dot=document.getElementById('statusDot');
+  const txt=document.getElementById('statusText');
+  bar.className='status-bar visible';
+  bar.style.background=state==='connected'?'#0a2010':state==='error'?'#200a0a':'#1a1a00';
+  bar.style.borderBottomColor=state==='connected'?'#00c89633':state==='error'?'#e8545433':'#f5a62333';
+  const clr={connected:'var(--green)',syncing:'var(--warn)',error:'var(--red)'}[state]||'var(--warn)';
+  dot.style.background=clr; dot.style.boxShadow='0 0 5px '+clr;
+  txt.style.color=clr; txt.textContent=text;
 }
 
-function clearFirebaseConfig(){
-  if(!confirm('Remove Firebase config? The dashboard will revert to local-only storage.')) return;
-  localStorage.removeItem('qc_fb_config');
-  if(fbUnsubscribe) fbUnsubscribe();
-  db = null;
-  document.getElementById('fbSetupCard').style.display = 'none';
-  document.getElementById('fbStatusBar').style.display = 'none';
-  document.getElementById('fbBanner').style.display = '';
-  toast('Firebase config removed — using local storage');
-}
-
-function initFirebase(config){
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(config);
-    db = firebase.firestore();
-    document.getElementById('fbSetupCard').style.display = 'none';
-    document.getElementById('fbBanner').style.display = 'none';
-    setFbStatus('syncing', 'Connecting to Firebase…');
-    startFirestoreListener();
-  } catch(e) {
-    setFbStatus('error', 'Firebase error: ' + e.message);
-    document.getElementById('fbConfigMsg').style.color = 'var(--danger)';
-    document.getElementById('fbConfigMsg').textContent = '⚠ Firebase init failed: ' + e.message;
-  }
-}
-
-function setFbStatus(state, text){
-  const bar = document.getElementById('fbStatusBar');
-  const dot = document.getElementById('fbStatusDot');
-  const txt = document.getElementById('fbStatusText');
-  bar.style.display = 'flex';
-  txt.textContent = text;
-  const colours = {connected:'#00c896', syncing:'#f5a623', error:'#e85454'};
-  const c = colours[state] || '#f5a623';
-  dot.style.background = c; dot.style.boxShadow = '0 0 6px ' + c;
-}
-
-function startFirestoreListener(){
-  if(fbUnsubscribe) fbUnsubscribe();
-  const [col, docId] = FB_DOC.split('/');
-  fbUnsubscribe = db.collection(col).doc(docId).onSnapshot(snap => {
-    if(snap.exists){
-      const d = snap.data();
-      S.agents     = d.agents     || DEFAULT_AGENTS;
-      S.categories = d.categories || DEFAULT_CATS;
-      S.entries    = d.entries    || [];
-      S.active = new Set(S.agents);
-      if(!S.agents.includes(S.wAgent)) S.wAgent = S.agents[0] || '';
-      save(); // mirror to localStorage as backup
-      setFbStatus('connected', '🔥 Firebase synced · ' + S.entries.length + ' entries · ' + new Date().toLocaleTimeString());
-      buildFilterBar();
-      redraw();
-    } else {
-      setFbStatus('syncing', 'First run — uploading seed data…');
-      persist(() => setFbStatus('connected', '🔥 Firebase ready · seed data uploaded'));
-    }
-  }, err => {
-    setFbStatus('error', '⚠ Firestore: ' + err.message + ' — check your rules allow read/write');
-  });
-}
-
-function persist(callback){
-  save();
-  if(db){
-    const [col, docId] = FB_DOC.split('/');
-    setFbStatus('syncing', 'Saving…');
-    db.collection(col).doc(docId).set({
-      agents: S.agents, categories: S.categories, entries: S.entries,
-      updatedAt: new Date().toISOString()
-    }).then(() => {
-      setFbStatus('connected', '🔥 Firebase synced · ' + S.entries.length + ' entries · saved ' + new Date().toLocaleTimeString());
-      if(callback) callback();
-    }).catch(err => {
-      setFbStatus('error', '⚠ Save failed: ' + err.message);
-      if(callback) callback();
-    });
-  } else {
-    if(callback) callback();
-  }
-}
-
-// ── Persistence (localStorage — always used as local backup) ──
-function save(){ localStorage.setItem('qc_dash_v3', JSON.stringify({agents:S.agents, categories:S.categories, entries:S.entries})); }
-function load(){
+function initFirebase(){
   try{
-    const d=JSON.parse(localStorage.getItem('qc_dash_v3'));
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.firestore();
+    setStatus('syncing','Connecting to Firebase…');
+    startListener();
+  }catch(e){ setStatus('error','Firebase error: '+e.message); loadLocal(); buildAll(); }
+}
+
+function startListener(){
+  if(fbUnsub) fbUnsub();
+  fbUnsub = db.collection(FB_COL).doc(FB_DOC).onSnapshot(snap=>{
+    if(snap.exists){
+      const d=snap.data();
+      S.agents=d.agents||DEFAULT_AGENTS;
+      S.categories=d.categories||DEFAULT_CATS;
+      S.entries=dedup(normaliseEntries(d.entries||[]));
+      S.active=new Set(S.agents);
+      if(!S.agents.includes(S.wAgent)) S.wAgent=S.agents[0]||'';
+      saveLocal();
+      setStatus('connected','🔥 Firebase synced · '+S.entries.length+' entries · '+new Date().toLocaleTimeString());
+      buildAll();
+    } else {
+      setStatus('syncing','First run — uploading seed data…');
+      S.entries=[...SEED_ENTRIES];
+      persist(()=>setStatus('connected','🔥 Firebase ready · seed data uploaded'));
+    }
+  },err=>{ setStatus('error','⚠ '+err.message); });
+}
+
+function persist(cb){
+  saveLocal();
+  if(!db){ if(cb)cb(); return; }
+  setStatus('syncing','Saving…');
+  db.collection(FB_COL).doc(FB_DOC).set({
+    agents:S.agents, categories:S.categories, entries:S.entries,
+    updatedAt:new Date().toISOString()
+  }).then(()=>{
+    setStatus('connected','🔥 Firebase synced · '+S.entries.length+' entries · '+new Date().toLocaleTimeString());
+    if(cb)cb();
+  }).catch(err=>{ setStatus('error','⚠ Save failed: '+err.message); if(cb)cb(); });
+}
+
+// ══════════════════════════════════════════════════════
+//  LOCAL STORAGE BACKUP
+// ══════════════════════════════════════════════════════
+function saveLocal(){ try{ localStorage.setItem('qc_gumite_v1',JSON.stringify({agents:S.agents,categories:S.categories,entries:S.entries})); }catch(e){} }
+function loadLocal(){
+  try{
+    const d=JSON.parse(localStorage.getItem('qc_gumite_v1'));
     if(d&&d.entries&&d.entries.length){
       S.agents=d.agents||DEFAULT_AGENTS; S.categories=d.categories||DEFAULT_CATS;
-      S.entries=d.entries; S.active=new Set(S.agents); S.wAgent=S.agents[0];
-      return;
+      S.entries=dedup(normaliseEntries(d.entries)); S.active=new Set(S.agents); S.wAgent=S.agents[0]; return;
     }
   }catch(e){}
-  S.entries=[...SEED.entries];
-  save();
+  S.entries=[...SEED_ENTRIES]; saveLocal();
 }
 
-// ── Helpers ──
+function normaliseEntries(arr){ return (arr||[]).map(e=>({...e,week:canonicalWeek(e.week)})); }
+function dedup(arr){
+  const seen=new Map();
+  arr.forEach(e=>{ const k=e.agent+'||'+e.week; if(!seen.has(k)||e.id>seen.get(k).id) seen.set(k,e); });
+  return [...seen.values()];
+}
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
 const col=a=>PAL[S.agents.indexOf(a)%PAL.length];
 const getActive=()=>S.agents.filter(a=>S.active.has(a));
-const getMonths=()=>{const ms=new Set(S.entries.map(e=>e.month));return MONTHS_ORD.filter(m=>ms.has(m));};
-const monthAvg=(a,m)=>{const r=S.entries.filter(e=>e.agent===a&&e.month===m&&e.score!=null);return r.length?r.reduce((s,e)=>s+e.score,0)/r.length:null;};
-const agentCats=a=>{const o={};S.entries.filter(e=>e.agent===a).forEach(e=>(e.categories||[]).forEach(c=>o[c]=(o[c]||0)+1));return o;};
+const getMonths=()=>{ const ms=new Set(S.entries.map(e=>e.month)); return MONTHS_ORD.filter(m=>ms.has(m)); };
+const monthAvg=(a,m)=>{ const r=S.entries.filter(e=>e.agent===a&&e.month===m&&e.score!=null); return r.length?r.reduce((s,e)=>s+e.score,0)/r.length:null; };
+const agentCats=a=>{ const o={}; S.entries.filter(e=>e.agent===a).forEach(e=>(e.categories||[]).forEach(c=>o[c]=(o[c]||0)+1)); return o; };
+const isPositive=cat=>{ if(!cat) return true; const c=cat.toLowerCase().trim().replace(/,$/,'').trim(); return !c||POSITIVE_CATS.some(k=>c===k||c.includes(k)); };
+const normMonthStr=h=>{ if(!h)return null; const hl=h.toLowerCase(); for(const[k,v]of[['jan','Jan'],['feb','Feb'],['mar','Mar'],['apr','Apr'],['may','May'],['jun','Jun'],['jul','Jul'],['aug','Aug'],['sep','Sep'],['oct','Oct'],['nov','Nov'],['dec','Dec']]) if(hl.includes(k))return v; return null; };
+const normAgentName=raw=>{ if(!raw)return null; const n=raw.trim().replace(/\s+/g,' '); return S.agents.find(a=>a.toLowerCase()===n.toLowerCase())||n; };
 
-function toast(msg,ok=true){const t=document.getElementById('toast');t.textContent=msg;t.style.background=ok?'var(--accent)':'var(--danger)';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+function toast(msg,ok=true){ const t=document.getElementById('toast'); t.textContent=msg; t.style.background=ok?'var(--accent)':'var(--red)'; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800); }
 
-function toggleGithubTip(){const d=document.getElementById('githubTip');d.style.display=d.style.display==='none'?'':'none';}
+// ══════════════════════════════════════════════════════
+//  BUILD ALL
+// ══════════════════════════════════════════════════════
+function buildAll(){ buildKPIs(); buildFilterBar(); redraw(); }
 
-// ── KPIs ──
 function buildKPIs(){
   const months=getMonths();
   const allQ=S.agents.flatMap(a=>months.map(m=>monthAvg(a,m)).filter(v=>v!=null));
   const avg=allQ.length?allQ.reduce((s,v)=>s+v,0)/allQ.length:0;
-  const passing=S.agents.filter(a=>{const v=months.map(m=>monthAvg(a,m)).filter(v=>v!=null);return v.length&&v.reduce((s,x)=>s+x,0)/v.length>=85;}).length;
-  const lastM=months[months.length-1];
-  const urgent=S.agents.filter(a=>{const v=monthAvg(a,lastM);return v!=null&&v<85;}).length;
-  const drops=S.agents.map(a=>{const prev=months.length>1?monthAvg(a,months[months.length-2]):null;const cur=monthAvg(a,lastM);return prev&&cur?{a,d:prev-cur}:{a,d:-99};}).filter(x=>x.d>0).sort((a,b)=>b.d-a.d);
-  const totalErr=S.entries.reduce((s,e)=>s+(e.categories||[]).length,0);
+  const passing=S.agents.filter(a=>{ const v=months.map(m=>monthAvg(a,m)).filter(v=>v!=null); return v.length&&v.reduce((s,x)=>s+x,0)/v.length>=85; }).length;
+  const lastM=months[months.length-1]||'—';
+  const urgent=S.agents.filter(a=>{ const v=monthAvg(a,lastM); return v!=null&&v<85; }).length;
+  const allErr=S.entries.reduce((s,e)=>s+(e.categories||[]).length,0);
+  const merged={}; S.entries.forEach(e=>(e.categories||[]).forEach(c=>merged[c]=(merged[c]||0)+1));
+  const top=Object.entries(merged).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById('kpiGrid').innerHTML=`
     <div class="kpi"><div class="kpi-l">Team Avg QC</div><div class="kpi-v">${avg.toFixed(1)}%</div><div class="kpi-s">target ≥ 85%</div></div>
-    <div class="kpi"><div class="kpi-l">Agents ≥ 85% avg</div><div class="kpi-v">${passing}<span style="font-size:16px;color:var(--t3)"> / ${S.agents.length}</span></div><div class="kpi-s">overall average</div></div>
-    <div class="kpi"><div class="kpi-l">Below target (${lastM})</div><div class="kpi-v" style="color:${urgent>3?'var(--danger)':'var(--caution)'}">${urgent}</div><div class="kpi-s">agents scored &lt; 85%</div></div>
-    <div class="kpi"><div class="kpi-l">Biggest drop</div><div class="kpi-v" style="font-size:17px">${drops[0]?drops[0].a.split(' ')[0]:'—'}</div><div class="kpi-s">${drops[0]?'↓'+drops[0].d.toFixed(1)+'% vs prev month':''}</div></div>
-    <div class="kpi"><div class="kpi-l">Total errors</div><div class="kpi-v">${totalErr}</div><div class="kpi-s">${S.entries.length} entries tracked</div></div>`;
+    <div class="kpi"><div class="kpi-l">Agents ≥ 85% avg</div><div class="kpi-v">${passing}<span style="font-size:15px;color:var(--t3)"> / ${S.agents.length}</span></div><div class="kpi-s">overall avg</div></div>
+    <div class="kpi"><div class="kpi-l">Below target (${lastM})</div><div class="kpi-v" style="color:${urgent>2?'var(--red)':'var(--warn)'}">${urgent}</div><div class="kpi-s">scored &lt; 85%</div></div>
+    <div class="kpi"><div class="kpi-l">Total errors</div><div class="kpi-v">${allErr}</div><div class="kpi-s">${S.entries.length} entries</div></div>
+    <div class="kpi"><div class="kpi-l">Top error</div><div class="kpi-v" style="font-size:14px;line-height:1.3">${top?top[0].substring(0,22)+'…':'—'}</div><div class="kpi-s">${top?top[1]+' times':''}</div></div>`;
   document.getElementById('entryCount').textContent=S.entries.length;
   document.getElementById('monthCount').textContent=months.length;
-  document.getElementById('topSub').textContent=`Call Centre · ${months[0]||''}–${lastM||''} 2026 · Target ≥ 85%`;
+  document.getElementById('topSub').textContent=`${months[0]||''}–${lastM} 2026 · Target ≥ 85%`;
 }
 
-// ── Agent pills ──
+// ── Filter pills ──
 function buildFilterBar(){
   const bar=document.getElementById('filterBar');
-  while(bar.children.length>1)bar.removeChild(bar.lastChild);
+  while(bar.children.length>1) bar.removeChild(bar.lastChild);
   S.agents.forEach(a=>{
-    const p=document.createElement('button');
-    p.className='pill on';p.textContent=a.split(' ')[0];p.title=a;
-    p.style.background=col(a);p.style.borderColor=col(a);
-    p.onclick=()=>{if(S.active.has(a)){if(S.active.size===1)return;S.active.delete(a);p.classList.remove('on');p.style.background='';p.style.borderColor='';}else{S.active.add(a);p.classList.add('on');p.style.background=col(a);p.style.borderColor=col(a);}redraw();};
+    const p=document.createElement('button'); p.className='pill on'; p.textContent=a.split(' ')[0]; p.title=a;
+    p.style.background=col(a); p.style.borderColor=col(a);
+    p.onclick=()=>{ if(S.active.has(a)){if(S.active.size===1)return;S.active.delete(a);p.classList.remove('on');p.style.background='';p.style.borderColor='';}else{S.active.add(a);p.classList.add('on');p.style.background=col(a);p.style.borderColor=col(a);} redraw(); };
     bar.appendChild(p);
   });
-  const all=document.createElement('button');all.className='pill';all.textContent='All';
-  all.onclick=()=>{S.agents.forEach(a=>S.active.add(a));bar.querySelectorAll('.pill:not(:last-child)').forEach((p,i)=>{p.classList.add('on');p.style.background=PAL[i%PAL.length];p.style.borderColor=PAL[i%PAL.length];});redraw();};
+  const all=document.createElement('button'); all.className='pill'; all.textContent='All';
+  all.onclick=()=>{ S.agents.forEach(a=>S.active.add(a)); bar.querySelectorAll('.pill:not(:last-child)').forEach((p,i)=>{p.classList.add('on');p.style.background=PAL[i%PAL.length];p.style.borderColor=PAL[i%PAL.length];}); redraw(); };
   bar.appendChild(all);
 }
 
 // ── Monthly trend ──
 function renderTrend(){
   if(tC){tC.destroy();tC=null;}
-  const months=getMonths();const ag=getActive();
+  const months=getMonths(); const ag=getActive();
   document.getElementById('trendLeg').innerHTML=ag.map(a=>`<span><span class="ldot" style="background:${col(a)}"></span>${a.split(' ')[0]}</span>`).join('')+`<span><span class="ldash"></span>85% target</span>`;
   const ds=ag.map((a,ii)=>({label:a,data:months.map(m=>monthAvg(a,m)),borderColor:col(a),backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointHoverRadius:7,borderDash:DASHES[S.agents.indexOf(a)%DASHES.length],tension:.3,spanGaps:false}));
-  ds.push({label:'Target',data:months.map(()=>85),borderColor:'var(--danger)',borderDash:[6,4],borderWidth:1.5,pointRadius:0});
-  tC=new Chart(document.getElementById('trendC'),{type:'line',data:{labels:months,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw!=null?`${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`:null}}},scales:{y:{min:55,max:110,ticks:{callback:v=>v+'%',font:{size:11},color:'#a0aec0'},grid:{color:'rgba(255,255,255,0.08)'}},x:{ticks:{font:{size:11},color:'#cbd5e0'},grid:{display:false}}}}});
+  ds.push({label:'Target',data:months.map(()=>85),borderColor:'var(--red)',borderDash:[6,4],borderWidth:1.5,pointRadius:0});
+  tC=new Chart(document.getElementById('trendC'),{type:'line',data:{labels:months,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw!=null?`${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`:null}}},scales:{y:{min:60,max:110,ticks:{callback:v=>v+'%',font:{size:11},color:'#a0aec0'},grid:{color:'rgba(255,255,255,0.07)'}},x:{ticks:{font:{size:11},color:'#cbd5e0'},grid:{display:false}}}}});
 }
 
-// ── Canonical week order (used to sort weekly chart correctly) ──
-const WEEK_ORDER = [
-  '03rd-09th Jan','10th-16th Jan','17th-23rd Jan','24th-30th Jan',
-  '31st-06th Feb','07th-13th Feb','14th-20th Feb','21st-27th Feb',
-  '28th-06th Mar','07th-13th Mar','14th-21st Mar','21st-27th Mar',
-  '28th-03rd Apr','04th-10th Apr','11th-17th Apr','18th-24th Apr','25th-30th Apr',
-  '01st-08th May','09th-15th May','16th-22nd May','23rd-29th May',
-  '30th May-05th Jun','06th-12th Jun','13th-19th Jun','20th-26th Jun',
-  '27th Jun-03rd Jul','04th-10th Jul','11th-17th Jul','18th-24th Jul','25th-31st Jul',
-];
-function weekIdx(week){
-  if(!week) return 9999;
-  // exact match first
-  const exact = WEEK_ORDER.indexOf(week);
-  if(exact >= 0) return exact;
-  // fuzzy: strip spaces and compare lowercase
-  const wl = week.toLowerCase().replace(/\s+/g,'');
-  for(let i=0;i<WEEK_ORDER.length;i++){
-    if(WEEK_ORDER[i].toLowerCase().replace(/\s+/g,'')===wl) return i;
-  }
-  // fallback: sort by month then week start day number
-  return 9999;
-}
-function weekSortFn(x, y){
-  const xi = weekIdx(x.week), yi = weekIdx(y.week);
-  if(xi !== 9999 || yi !== 9999) return xi - yi;
-  // both unknown: fall back to month order then start day
-  const mdiff = MONTHS_ORD.indexOf(x.month) - MONTHS_ORD.indexOf(y.month);
-  if(mdiff !== 0) return mdiff;
-  const dayX = parseInt((x.week||'').match(/\d+/)?.[0]||'0');
-  const dayY = parseInt((y.week||'').match(/\d+/)?.[0]||'0');
-  return dayX - dayY;
-}
-
-// ── Weekly trend ──
+// ── Weekly drill-down ──
 function buildWPills(){
-  const c=document.getElementById('wPills');c.innerHTML='';
-  S.agents.forEach(a=>{const p=document.createElement('button');p.className='pill'+(a===S.wAgent?' on':'');if(a===S.wAgent){p.style.background=col(a);p.style.borderColor=col(a);}p.textContent=a.split(' ')[0];p.title=a;p.onclick=()=>{S.wAgent=a;buildWPills();renderWeekly();};c.appendChild(p);});
+  const c=document.getElementById('wPills'); c.innerHTML='';
+  S.agents.forEach(a=>{ const p=document.createElement('button'); p.className='pill'+(a===S.wAgent?' on':''); if(a===S.wAgent){p.style.background=col(a);p.style.borderColor=col(a);} p.textContent=a.split(' ')[0]; p.title=a; p.onclick=()=>{ S.wAgent=a; buildWPills(); renderWeekly(); }; c.appendChild(p); });
 }
 function renderWeekly(){
   if(wC){wC.destroy();wC=null;}
-  const a=S.wAgent;const c=col(a);
+  const a=S.wAgent; const c=col(a);
   const rows=S.entries.filter(e=>e.agent===a&&e.score!=null).sort(weekSortFn);
-  const labels=rows.map(r=>r.week);const scores=rows.map(r=>r.score);
-  wC=new Chart(document.getElementById('weeklyC'),{type:'line',data:{labels,datasets:[{label:a,data:scores,borderColor:c,backgroundColor:c+'22',fill:true,borderWidth:2,pointRadius:3,pointHoverRadius:6,tension:.3},{label:'Target',data:labels.map(()=>85),borderColor:'var(--danger)',borderDash:[6,4],borderWidth:1.5,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw?.toFixed(1)}%`,title:ctxs=>`${ctxs[0].label} (${rows[ctxs[0].dataIndex]?.month})`}}},scales:{y:{min:40,max:115,ticks:{callback:v=>v+'%',font:{size:11},color:'#a0aec0'},grid:{color:'rgba(255,255,255,0.08)'}},x:{ticks:{font:{size:9},maxRotation:50,autoSkip:false,color:'#cbd5e0'},grid:{display:false}}}}});
+  const labels=rows.map(r=>r.week); const scores=rows.map(r=>r.score);
+  wC=new Chart(document.getElementById('weeklyC'),{type:'line',data:{labels,datasets:[{label:a,data:scores,borderColor:c,backgroundColor:c+'20',fill:true,borderWidth:2,pointRadius:3,pointHoverRadius:6,tension:.3},{label:'Target',data:labels.map(()=>85),borderColor:'var(--red)',borderDash:[6,4],borderWidth:1.5,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw?.toFixed(1)}%`,title:ctxs=>`${ctxs[0].label} (${rows[ctxs[0].dataIndex]?.month})`}}},scales:{y:{min:55,max:115,ticks:{callback:v=>v+'%',font:{size:11},color:'#a0aec0'},grid:{color:'rgba(255,255,255,0.07)'}},x:{ticks:{font:{size:9},maxRotation:50,autoSkip:false,color:'#cbd5e0'},grid:{display:false}}}}});
 }
 
 // ── Error categories ──
 function renderErrors(){
   if(eC){eC.destroy();eC=null;}
-  const ag=getActive();const merged={};
+  const ag=getActive(); const merged={};
   ag.forEach(a=>Object.entries(agentCats(a)).forEach(([k,v])=>merged[k]=(merged[k]||0)+v));
   const sorted=Object.entries(merged).sort((a,b)=>b[1]-a[1]).slice(0,14);
-  const h=Math.max(340,sorted.length*42+80);document.getElementById('errWrap').style.height=h+'px';
-  eC=new Chart(document.getElementById('errC'),{type:'bar',data:{labels:sorted.map(e=>e[0].length>32?e[0].slice(0,32)+'…':e[0]),datasets:[{data:sorted.map(e=>e[1]),backgroundColor:sorted.map((_,i)=>PAL[i%PAL.length]),borderWidth:0,borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} occurrences`}}},scales:{x:{ticks:{stepSize:1,font:{size:11},color:'#a0aec0'},grid:{color:'rgba(255,255,255,0.08)'}},y:{ticks:{font:{size:11},color:'#cbd5e0'},grid:{display:false}}}}});
+  const h=Math.max(320,sorted.length*42+80); document.getElementById('errWrap').style.height=h+'px';
+  eC=new Chart(document.getElementById('errC'),{type:'bar',data:{labels:sorted.map(e=>e[0].length>30?e[0].slice(0,30)+'…':e[0]),datasets:[{data:sorted.map(e=>e[1]),backgroundColor:sorted.map((_,i)=>PAL[i%PAL.length]),borderWidth:0,borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} occurrences`}}},scales:{x:{ticks:{stepSize:1,font:{size:10},color:'#a0aec0'},grid:{color:'rgba(255,255,255,0.07)'}},y:{ticks:{font:{size:10},color:'#cbd5e0'},grid:{display:false}}}}});
   const allCats=[...new Set(ag.flatMap(a=>Object.keys(agentCats(a))))].sort((a,b)=>ag.reduce((s,x)=>s+(agentCats(x)[b]||0),0)-ag.reduce((s,x)=>s+(agentCats(x)[a]||0),0));
   const maxC=Math.max(1,...allCats.map(c=>ag.reduce((s,a)=>s+(agentCats(a)[c]||0),0)));
   const tbl=document.getElementById('errTbl');
   tbl.querySelector('thead').innerHTML=`<tr><th>Category</th>${ag.map(a=>`<th>${a.split(' ')[0]}</th>`).join('')}<th>Total</th></tr>`;
-  tbl.querySelector('tbody').innerHTML=allCats.map(cat=>{const total=ag.reduce((s,a)=>s+(agentCats(a)[cat]||0),0);if(!total)return'';return`<tr><td style="font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</td>${ag.map(a=>{const v=agentCats(a)[cat]||0;return`<td style="text-align:center">${v?`<b style="color:${col(a)}">${v}</b>`:'—'}</td>`;}).join('')}<td><div class="bar-c"><div class="bar-t"><div class="bar-f" style="width:${Math.round(total/maxC*100)}%"></div></div><b style="font-size:11px;min-width:14px">${total}</b></div></td></tr>`;}).join('');}
+  tbl.querySelector('tbody').innerHTML=allCats.map(cat=>{ const total=ag.reduce((s,a)=>s+(agentCats(a)[cat]||0),0); if(!total)return''; return`<tr><td style="font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</td>${ag.map(a=>{ const v=agentCats(a)[cat]||0; return`<td style="text-align:center">${v?`<b style="color:${col(a)}">${v}</b>`:'—'}</td>`; }).join('')}<td><div class="bar-c"><div class="bar-t"><div class="bar-f" style="width:${Math.round(total/maxC*100)}%"></div></div><b style="font-size:10px;min-width:14px">${total}</b></div></td></tr>`; }).join('');
+}
 
 // ── Scorecard ──
 function renderScorecard(){
-  const months=getMonths();const tbl=document.getElementById('scTbl');
-  tbl.querySelector('thead').innerHTML=`<tr><th>Agent</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>Avg</th><th>Last trend</th></tr>`;
+  const months=getMonths(); const tbl=document.getElementById('scTbl');
+  tbl.querySelector('thead').innerHTML=`<tr><th>Agent</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>Avg</th><th>Errors</th></tr>`;
   tbl.querySelector('tbody').innerHTML=S.agents.map(a=>{
-    const vals=months.map(m=>monthAvg(a,m));const known=vals.filter(v=>v!=null);const avg=known.length?known.reduce((s,v)=>s+v,0)/known.length:null;
-    const last2=known.slice(-2);const delta=last2.length===2?last2[1]-last2[0]:null;
-    const errors=Object.values(agentCats(a)).reduce((s,v)=>s+v,0);
-    return`<tr><td style="font-weight:600;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col(a)};margin-right:6px"></span>${a}</td>${months.map((m,i)=>{const v=vals[i];return`<td>${v!=null?`<span class="bdg ${v>=85?'bp':v>=75?'bw':'bf'}">${v.toFixed(1)}%</span>`:'<span class="bdg bn">—</span>'}</td>`;}).join('')}<td>${avg!=null?`<span class="bdg ${avg>=85?'bp':avg>=75?'bw':'bf'}">${avg.toFixed(1)}%</span>`:'—'}</td><td>${delta!=null?`<span style="font-weight:600;color:${delta>0?'var(--pass)':delta<-5?'var(--danger)':'var(--caution)'}">${delta>0?'▲':'▼'}${Math.abs(delta).toFixed(1)}%</span>`:'—'}</td></tr>`;
-  }).join('');}
+    const vals=months.map(m=>monthAvg(a,m)); const known=vals.filter(v=>v!=null);
+    const avg=known.length?known.reduce((s,v)=>s+v,0)/known.length:null;
+    const errs=Object.values(agentCats(a)).reduce((s,v)=>s+v,0);
+    return`<tr><td style="font-weight:600;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col(a)};margin-right:5px"></span>${a}</td>${months.map((m,i)=>{ const v=vals[i]; return`<td>${v!=null?`<span class="bdg ${v>=85?'bp':v>=75?'bw':'bf'}">${v.toFixed(1)}%</span>`:'<span class="bdg bn">—</span>'}</td>`; }).join('')}<td>${avg!=null?`<span class="bdg ${avg>=85?'bp':avg>=75?'bw':'bf'}">${avg.toFixed(1)}%</span>`:'—'}</td><td style="font-family:var(--mono);color:${errs>5?'var(--red)':errs>2?'var(--warn)':'var(--green)'}">${errs}</td></tr>`;
+  }).join('');
+}
 
 // ── All Entries ──
 function renderEntries(){
   const months=getMonths();
-  // month dropdown
-  const mSel=document.getElementById('eMonth');const mCur=mSel.value;
+  const mSel=document.getElementById('eMonth'); const mCur=mSel.value;
   mSel.innerHTML='<option value="">All months</option>'+months.map(m=>`<option value="${m}"${mCur===m?' selected':''}>${m}</option>`).join('');
-  // agent dropdown
-  const aSel=document.getElementById('eAgent');const aCur=aSel.value;
+  const aSel=document.getElementById('eAgent'); const aCur=aSel.value;
   aSel.innerHTML='<option value="">All agents</option>'+S.agents.map(a=>`<option value="${a}"${aCur===a?' selected':''}>${a}</option>`).join('');
   const s=(document.getElementById('eSearch').value||'').toLowerCase();
-  const mf=mSel.value;const af=aSel.value;
+  const mf=mSel.value; const af=aSel.value;
   let rows=[...S.entries];
-  if(s)rows=rows.filter(e=>e.agent.toLowerCase().includes(s)||e.week.toLowerCase().includes(s)||(e.categories||[]).some(c=>c.toLowerCase().includes(s)));
-  if(mf)rows=rows.filter(e=>e.month===mf);
-  if(af)rows=rows.filter(e=>e.agent===af);
+  if(s) rows=rows.filter(e=>e.agent.toLowerCase().includes(s)||e.week.toLowerCase().includes(s)||(e.categories||[]).some(c=>c.toLowerCase().includes(s)));
+  if(mf) rows=rows.filter(e=>e.month===mf);
+  if(af) rows=rows.filter(e=>e.agent===af);
   rows.sort((a,b)=>MONTHS_ORD.indexOf(a.month)-MONTHS_ORD.indexOf(b.month)||a.agent.localeCompare(b.agent));
   document.getElementById('eCount').textContent=`(${rows.length} of ${S.entries.length})`;
   const tbl=document.getElementById('eTbl');
-  tbl.querySelector('thead').innerHTML=`<tr><th>Agent</th><th>Month</th><th>Week</th><th>Score</th><th>Categories</th><th>Notes</th><th style="text-align:center">Actions</th></tr>`;
+  tbl.querySelector('thead').innerHTML=`<tr><th>Agent</th><th>Month</th><th>Week</th><th>Score</th><th>Categories</th><th>Notes</th><th>Actions</th></tr>`;
   tbl.querySelector('tbody').innerHTML=rows.map(e=>`<tr>
     <td style="white-space:nowrap"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${col(e.agent)};margin-right:5px"></span>${e.agent}</td>
-    <td style="font-family:var(--mono);font-size:11px;color:var(--t3)">${e.month}</td>
-    <td style="font-size:11px;color:var(--t2)">${e.week}</td>
+    <td style="font-family:var(--mono);font-size:10px;color:var(--t3)">${e.month}</td>
+    <td style="font-size:10px;color:var(--t2)">${e.week}</td>
     <td><span class="bdg ${e.score>=85?'bp':e.score>=75?'bw':'bf'}">${e.score?.toFixed(1)}%</span></td>
-    <td style="font-size:11px;color:var(--t2);max-width:200px">${(e.categories||[]).join(', ')||'—'}</td>
-    <td style="font-size:11px;color:var(--t3)">${e.notes||'—'}</td>
-    <td style="white-space:nowrap;text-align:center">
-      <button class="btn" style="font-size:10px;padding:2px 8px;margin-right:3px" onclick="openAddModal('${e.id}')">Edit</button>
-      <button class="btn" style="font-size:10px;padding:2px 8px;color:var(--danger);border-color:#e8545444" onclick="deleteEntry('${e.id}')">Del</button>
-    </td></tr>`).join('');}
+    <td style="font-size:10px;color:var(--t2);max-width:200px">${(e.categories||[]).join(', ')||'—'}</td>
+    <td style="font-size:10px;color:var(--t3)">${e.notes||'—'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn" style="font-size:10px;padding:2px 7px;margin-right:2px" onclick="openAddModal('${e.id}')">Edit</button>
+      <button class="btn btn-red" style="font-size:10px;padding:2px 7px" onclick="deleteEntry('${e.id}')">Del</button>
+    </td></tr>`).join('');
+}
 
 // ── Recommendations ──
 function renderRecs(){
+  const months=getMonths(); const lastM=months[months.length-1]||'Jul';
+  const belowTarget=S.agents.filter(a=>{ const v=monthAvg(a,lastM); return v!=null&&v<85; });
+  const merged={}; S.entries.forEach(e=>(e.categories||[]).forEach(c=>merged[c]=(merged[c]||0)+1));
+  const topCats=Object.entries(merged).sort((a,b)=>b[1]-a[1]).slice(0,3);
+
   const recs=[
-    {t:'urgent',icon:'🔴',title:'Immediate action: Fortunate Nahurira & Elizabeth Kemigisa',body:`Fortunate has dropped from 95.5% (April) to 64.2% (June) — the steepest decline on the team across the entire 6-month period. Elizabeth scored 40% in the week of 20–26 June, logging 4 simultaneous errors: language, dropped call, interrupting the client, and speaking with another agent during the call. Both agents need one-to-one coaching sessions this week. Focus areas: call discipline, professionalism, and the script framework. Do not wait for the next assessment cycle.`,agents:['Fortunate Nahurira','Elizabeth Kemigisa']},
-    {t:'urgent',icon:'🔴',title:'Script adherence: a team-wide breakdown',body:`"Script not followed" is logged for every single agent across May–June. Gloria Nahirya, David Wasen, Violla Babirye, Kenneth Birungi, and Nabyonga Racheal Kisakye each have multiple violations in this period. This is not an individual coaching problem — it is a systemic one. Recommend: (1) a full-team script refresher session before the next week begins, (2) share a laminated one-page script summary at each desk, (3) add script compliance as a standalone check in the next 4 assessments. Also review whether the script itself needs simplification.`,agents:['Gloria Nahirya','David Wasen','Violla Babirye','Kenneth Birungi','Nabyonga Racheal Kisakye']},
-    {t:'warning',icon:'🟡',title:'Sustained decline: David Wasen & Nabyonga Racheal Kisakye',body:`David peaked at 92.5% (March) and is now 76.1% in June — a 16-point drop over 3 months. Nabyonga peaked at 94.3% (April) and has declined to 79.75% in June. For Nabyonga, "No negotiation" appears in every week of June — she is not closing conversations effectively and this appears habitual. For David, "All information not given" occurs 3 times in June — suggesting pre-call preparation issues. Specific recommendations: negotiation-closure training for Nabyonga this week; a structured pre-call checklist for David starting next Monday.`,agents:['David Wasen','Nabyonga Racheal Kisakye']},
-    {t:'warning',icon:'🟡',title:'Violla Babirye: extreme volatility — investigate before coaching',body:`Violla averaged 94.2% across March–May. She then scored 72.5% (week of 30 May), 101.25% (week of 6 June), and 67.5% (week of 20 June) in consecutive weeks. The extreme swings suggest an environmental or workload factor — not a skill gap — because her highs are genuinely outstanding. Before assigning training, investigate: Does the drop correspond to a specific shift, call queue type, or team configuration? Dropped calls in the same weeks suggest possible equipment issues worth checking.`,agents:['Violla Babirye']},
-    {t:'warning',icon:'🟡',title:"Angella Athieno: one specific habit to break",body:`Angella's overall scores are above 85%, but "Didn't mention consequences and benefits" appears in 4 of her 7 assessed entries in May–June. This is clearly a habitual omission in her script delivery. A targeted 20-minute coaching session focusing specifically on the consequences-and-benefits step — not general script coaching — is the most efficient intervention. Follow up with a direct check on this point in the next 3 assessments.`,agents:['Angella Athieno']},
-    {t:'good',icon:'🟢',title:'Recognise and leverage: Gloria Nahirya & Kenneth Birungi',body:`Gloria has stayed above 85% every single month, January through June, averaging 91.6% in June. She is the most consistent performer on the team across the entire period. Kenneth has never dropped below 80% in any month across 6 months. Both are natural candidates for peer coaching roles. Pairing Gloria with Fortunate, and Kenneth with David, for weekly call-listening sessions would cost nothing, reinforce good habits in the coaches, and provide faster day-to-day feedback than assessment cycles alone. Consider formally recognising their consistency in the next team meeting.`,agents:['Gloria Nahirya','Kenneth Birungi']},
-    {t:'good',icon:'🟢',title:"Manita Joan: strong June recovery — understand what changed",body:`Manita has a clear pattern of volatile months across the 6-month period (Feb 73.8%, May 74.6%) followed by strong recoveries (Mar 95%, Jun 92.6%). Her June rebound is excellent. Rather than treating each dip as a new training problem, the higher-value investigation is: what conditions produce her strong months? Likely factors are workload, call type mix, or team environment. If you can identify and replicate those conditions, you get consistency rather than just recovery.`,agents:['Manita Joan']},
-    {t:'info',icon:'🔵',title:'Process recommendation: weekly individual error log reviews',body:`Errors are currently only visible in aggregated assessment results. A simple process change — sharing each agent's personal error log at the start of every week before the next assessment — drives faster self-correction at zero additional cost. The data is already captured. What's missing is the feedback loop. A 10-minute team huddle where each agent sees their own previous week's errors and names one thing they will do differently creates accountability without blame.`,agents:[]}
-  ];
-  document.getElementById('pRecs').innerHTML=recs.map(r=>`<div class="rec ${r.t}"><div class="rec-title">${r.icon} ${r.title}</div>${r.agents.length?`<div style="margin:5px 0">${r.agents.map(a=>`<span class="abubble" style="background:${col(a)}">${a.split(' ')[0]}</span>`).join('')}</div>`:''}<div class="rec-body">${r.body}</div></div>`).join('');}
+    {
+      t:'info', icon:'🔵',
+      title:'Early data — only one week assessed so far (04–10 Jul)',
+      body:`This dashboard currently has one week of data for the Gumite team. Trends and comparisons will become meaningful from week 3 onwards. Keep importing your weekly CSVs and the charts will build automatically. The recommendations below are based on the patterns visible so far.`
+    },
+    belowTarget.length > 0 ? {
+      t:'warning', icon:'🟡',
+      title:`Below 85% in ${lastM}: ${belowTarget.map(a=>a.split(' ')[0]).join(', ')}`,
+      body:`${belowTarget.map(a=>`${a} scored ${monthAvg(a,lastM)?.toFixed(1)}%`).join('; ')}. These agents need early attention before the pattern settles. Schedule a brief one-to-one review this week — focus on what specifically went wrong on the assessed calls rather than general coaching.`,
+      agents: belowTarget
+    } : null,
+    topCats.length ? {
+      t:'urgent', icon:'🔴',
+      title:`Top error this week: "${topCats[0]?.[0]}"`,
+      body:`"${topCats[0]?.[0]}" is the most frequent error (${topCats[0]?.[1]} occurrence${topCats[0]?.[1]>1?'s':''}), followed by ${topCats.slice(1).map(e=>`"${e[0]}" (${e[1]})`).join(' and ')}. If these same errors appear next week, that signals a team-wide script or training gap rather than individual performance issues. Watch for the pattern.`
+    } : null,
+    {
+      t:'good', icon:'🟢',
+      title:'Strong start: Natasha Nakiyaga (100%) leads the team',
+      body:`Natasha is the only agent with a perfect score this week. As the dataset grows, agents consistently above 90% can be used as peer coaches — pairing them with lower-scoring agents for call-listening sessions is one of the most cost-effective coaching interventions available.`,
+      agents:['Natasha Nakiyaga']
+    },
+    {
+      t:'info', icon:'🔵',
+      title:'Process: import your CSVs every week to keep this live',
+      body:`Use the green "📄 Agent Scores CSV" button after each weekly summary is ready, and "📄 Weekly Trend CSV" after each call-level assessment file is done. The dashboard deduplicates automatically — reimporting a file won't create double entries. All data syncs to Firebase instantly so everyone with the link sees the latest picture.`
+    }
+  ].filter(Boolean);
+
+  document.getElementById('pRecs').innerHTML=recs.map(r=>`
+    <div class="rec ${r.t}">
+      <div class="rec-title">${r.icon} ${r.title}</div>
+      ${(r.agents||[]).length?`<div style="margin:4px 0">${r.agents.map(a=>`<span class="abubble" style="background:${col(a)}">${a.split(' ')[0]}</span>`).join('')}</div>`:''}
+      <div class="rec-body">${r.body}</div>
+    </div>`).join('');
+}
 
 // ── Tab switching ──
 function setTab(t,btn){
-  curTab=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  curTab=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
   ['pTrend','pWeekly','pErrors','pScorecard','pEntries','pRecs'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById({trend:'pTrend',weekly:'pWeekly',errors:'pErrors',scorecard:'pScorecard',entries:'pEntries',recs:'pRecs'}[t]).style.display='';
   redraw();
 }
 function redraw(){
   buildKPIs();
-  if(curTab==='trend')renderTrend();
-  else if(curTab==='weekly'){buildWPills();renderWeekly();}
-  else if(curTab==='errors')renderErrors();
-  else if(curTab==='scorecard')renderScorecard();
-  else if(curTab==='entries')renderEntries();
-  else if(curTab==='recs')renderRecs();
+  if(curTab==='trend') renderTrend();
+  else if(curTab==='weekly'){ buildWPills(); renderWeekly(); }
+  else if(curTab==='errors') renderErrors();
+  else if(curTab==='scorecard') renderScorecard();
+  else if(curTab==='entries') renderEntries();
+  else if(curTab==='recs') renderRecs();
 }
 
-// ── Add/Edit Modal ──
+// ══════════════════════════════════════════════════════
+//  ADD / EDIT MODAL
+// ══════════════════════════════════════════════════════
 function openAddModal(editId=null){
-  S.editId=editId;const e=editId?S.entries.find(x=>x.id===editId):null;
+  S.editId=editId; const e=editId?S.entries.find(x=>x.id===editId):null;
   document.getElementById('modalTitle').textContent=editId?'Edit QC Entry':'Add QC Entry';
-  document.getElementById('saveBtn').textContent=editId?'Update Entry':'Save Entry';
+  document.getElementById('saveBtn').textContent=editId?'Update':'Save Entry';
   document.getElementById('fAgent').innerHTML=S.agents.map(a=>`<option value="${a}"${e?.agent===a?' selected':''}>${a}</option>`).join('');
-  if(e)document.getElementById('fMonth').value=e.month;
-  document.getElementById('fWeek').value=e?.week||'';
-  document.getElementById('fScore').value=e?.score||'';
-  document.getElementById('fNotes').value=e?.notes||'';
-  document.getElementById('fCatGrid').innerHTML=S.categories.map(c=>{const ck=e?(e.categories||[]).includes(c):false;return`<label class="cat-chk ${ck?'ck':''}"><input type="checkbox" value="${c.replace(/"/g,'&quot;')}"${ck?' checked':''} onchange="this.closest('.cat-chk').classList.toggle('ck',this.checked)"><span>${c}</span></label>`;}).join('');
+  if(e) document.getElementById('fMonth').value=e.month;
+  document.getElementById('fWeek').value=e?.week||''; document.getElementById('fScore').value=e?.score||''; document.getElementById('fNotes').value=e?.notes||'';
+  document.getElementById('fCatGrid').innerHTML=S.categories.map(c=>{ const ck=e?(e.categories||[]).includes(c):false; return`<label class="cat-chk ${ck?'ck':''}"><input type="checkbox" value="${c.replace(/"/g,'&quot;')}"${ck?' checked':''} onchange="this.closest('.cat-chk').classList.toggle('ck',this.checked)"><span>${c}</span></label>`; }).join('');
   document.getElementById('modal').classList.add('open');
 }
-function closeModal(){document.getElementById('modal').classList.remove('open');S.editId=null;}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); S.editId=null; }
 function saveEntry(){
-  const agent=document.getElementById('fAgent').value;const month=document.getElementById('fMonth').value;
-  const week=document.getElementById('fWeek').value.trim();const score=parseFloat(document.getElementById('fScore').value);
+  const agent=document.getElementById('fAgent').value; const month=document.getElementById('fMonth').value;
+  const week=canonicalWeek(document.getElementById('fWeek').value.trim()); const score=parseFloat(document.getElementById('fScore').value);
   const notes=document.getElementById('fNotes').value.trim();
   const cats=[...document.querySelectorAll('#fCatGrid input:checked')].map(el=>el.value);
-  if(!agent||!month||!week||isNaN(score)){toast('Fill in all required fields (*)',false);return;}
-  if(S.editId){const i=S.entries.findIndex(e=>e.id===S.editId);if(i>=0)S.entries[i]={...S.entries[i],agent,month,week,score,categories:cats,notes};}
-  else{S.entries.push({id:'u'+Date.now(),agent,month,week,score,categories:cats,notes,source:'manual'});}
-  persist(()=>{toast(S.editId?'Entry updated':'Entry saved');});closeModal();redraw();
+  if(!agent||!month||!week||isNaN(score)){ toast('Fill in all required fields',false); return; }
+  if(S.editId){ const i=S.entries.findIndex(e=>e.id===S.editId); if(i>=0) S.entries[i]={...S.entries[i],agent,month,week,score,categories:cats,notes}; }
+  else S.entries.push({id:'u'+Date.now(),agent,month,week,score,categories:cats,notes,source:'manual'});
+  persist(()=>toast(S.editId?'Entry updated':'Entry saved')); closeModal(); redraw();
 }
-function deleteEntry(id){if(!confirm('Delete this entry?'))return;S.entries=S.entries.filter(e=>e.id!==id);persist(()=>toast('Entry deleted'));renderEntries();buildKPIs();}
+function deleteEntry(id){ if(!confirm('Delete this entry?'))return; S.entries=S.entries.filter(e=>e.id!==id); persist(()=>toast('Deleted')); renderEntries(); buildKPIs(); }
 
-// ── Export / Import JSON ──
-function exportJSON(){const b=new Blob([JSON.stringify({agents:S.agents,categories:S.categories,entries:S.entries},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`qc_data_${new Date().toISOString().slice(0,10)}.json`;a.click();toast('Data exported');}
-function importJSON(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.entries&&confirm(`Import ${d.entries.length} entries? This will replace all current data.`)){S.agents=d.agents||S.agents;S.categories=d.categories||S.categories;S.entries=d.entries;S.active=new Set(S.agents);S.wAgent=S.agents[0];persist(()=>toast('Data imported'));buildFilterBar();redraw();}}catch{toast('Invalid JSON file',false);}};r.readAsText(f);ev.target.value='';}
-function clearAll(){if(!confirm('Clear ALL data? This cannot be undone.'))return;S.entries=[];S.agents=[...DEFAULT_AGENTS];S.categories=[...DEFAULT_CATS];S.active=new Set(DEFAULT_AGENTS);persist(()=>toast('All data cleared'));buildFilterBar();redraw();}
+// ══════════════════════════════════════════════════════
+//  MANAGE AGENTS MODAL
+// ══════════════════════════════════════════════════════
+function openAgentsModal(){ renderAgentList(); document.getElementById('newAgentInput').value=''; document.getElementById('addAgentMsg').textContent=''; document.getElementById('agentsModal').classList.add('open'); }
+function closeAgentsModal(){ document.getElementById('agentsModal').classList.remove('open'); buildFilterBar(); redraw(); }
+function renderAgentList(){
+  document.getElementById('agentCountLbl').textContent=S.agents.length;
+  document.getElementById('agentListEl').innerHTML=S.agents.map((a,i)=>{
+    const ec=S.entries.filter(e=>e.agent===a).length;
+    const av=S.entries.filter(e=>e.agent===a&&e.score!=null).map(e=>e.score);
+    const avg=av.length?(av.reduce((s,v)=>s+v,0)/av.length).toFixed(1)+'%':'—';
+    return`<div class="agent-row"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${col(a)};flex-shrink:0"></span><div class="agent-row-info"><div class="agent-row-name">${a}</div><div class="agent-row-meta">${ec} entries · avg ${avg}</div></div><button class="btn btn-red" style="font-size:10px;padding:3px 8px;flex-shrink:0" onclick="removeAgent('${a.replace(/'/g,"\\'")}')">Remove</button></div>`;
+  }).join('');
+}
+function addAgent(){
+  const input=document.getElementById('newAgentInput'); const msg=document.getElementById('addAgentMsg');
+  const name=input.value.trim().replace(/\s+/g,' ');
+  if(!name){ msg.style.color='var(--red)'; msg.textContent='Please enter a name.'; return; }
+  if(S.agents.find(a=>a.toLowerCase()===name.toLowerCase())){ msg.style.color='var(--red)'; msg.textContent=`"${name}" already exists.`; return; }
+  S.agents.push(name); S.active.add(name); persist();
+  input.value=''; msg.style.color='var(--green)'; msg.textContent=`✓ "${name}" added.`;
+  renderAgentList(); setTimeout(()=>{ if(msg.textContent.includes(name)) msg.textContent=''; },2000);
+}
+function removeAgent(name){
+  const ec=S.entries.filter(e=>e.agent===name).length;
+  if(!confirm(`Remove "${name}" from the roster?${ec?'\n\nNote: their '+ec+' entries will be kept but hidden until re-added.':''}`)) return;
+  S.agents=S.agents.filter(a=>a!==name); S.active.delete(name);
+  if(S.wAgent===name) S.wAgent=S.agents[0]||'';
+  persist(); renderAgentList(); toast(`"${name}" removed`);
+}
 
-// ── CSV: Agent Scores ──
-function parseMonthFromStr(h){if(!h)return null;const hl=h.toLowerCase();for(const[k,v]of[['jan','Jan'],['feb','Feb'],['mar','Mar'],['apr','Apr'],['may','May'],['jun','Jun'],['jul','Jul'],['aug','Aug'],['sep','Sep'],['oct','Oct'],['nov','Nov'],['dec','Dec']])if(hl.includes(k))return v;return null;}
-function normAgentName(raw){if(!raw)return null;const n=raw.trim().replace(/\s+/g,' ');const found=S.agents.find(a=>a.toLowerCase()===n.toLowerCase());return found||n;}
-function isPositive(cat){if(!cat)return true;const c=cat.toLowerCase().trim().replace(/,$/,'').trim();return!c||POSITIVE.some(k=>c===k||c.includes(k));}
+// ══════════════════════════════════════════════════════
+//  EXPORT / IMPORT JSON
+// ══════════════════════════════════════════════════════
+function exportJSON(){
+  const b=new Blob([JSON.stringify({agents:S.agents,categories:S.categories,entries:S.entries},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`qc_gumite_${new Date().toISOString().slice(0,10)}.json`; a.click(); toast('Exported');
+}
+function importJSON(ev){
+  const f=ev.target.files[0]; if(!f)return;
+  const r=new FileReader(); r.onload=e=>{
+    try{ const d=JSON.parse(e.target.result); if(d.entries&&confirm(`Import ${d.entries.length} entries? Replaces current data.`)){ S.agents=d.agents||S.agents; S.categories=d.categories||S.categories; S.entries=dedup(normaliseEntries(d.entries)); S.active=new Set(S.agents); S.wAgent=S.agents[0]; persist(()=>toast('Imported')); buildAll(); } }
+    catch{ toast('Invalid JSON',false); }
+  }; r.readAsText(f); ev.target.value='';
+}
+function clearAll(){ if(!confirm('Clear ALL data? Cannot be undone.'))return; S.entries=[]; persist(()=>toast('Cleared')); buildAll(); }
 
+// ══════════════════════════════════════════════════════
+//  CSV IMPORTS
+// ══════════════════════════════════════════════════════
 function importScoresCSV(ev){
-  const f=ev.target.files[0];if(!f)return;
-  Papa.parse(f,{complete(res){
-    const rows=res.data.filter(r=>r.length>1&&r.some(c=>c&&c.trim()));if(!rows.length){toast('Empty CSV',false);return;}
-    const hdr=rows[0];const wks=hdr.slice(1).map(h=>(h||'').trim()).filter(h=>h);
+  const f=ev.target.files[0]; if(!f)return;
+  Papa.parse(f,{ complete(res){
+    const rows=res.data.filter(r=>r.length>1&&r.some(c=>c&&c.trim()));
+    if(!rows.length){ toast('Empty CSV',false); return; }
+    const hdr=rows[0]; const wks=hdr.slice(1).map(h=>(h||'').trim()).filter(h=>h);
     let added=0,updated=0,newAgents=[];
     for(let i=1;i<rows.length;i++){
-      const row=rows[i];const raw=(row[0]||'').trim();if(!raw||raw.toLowerCase()==='average')continue;
-      let agent=normAgentName(raw);if(!S.agents.includes(agent)){S.agents.push(agent);S.active.add(agent);newAgents.push(agent);}
-      for(let c=0;c<wks.length;c++){const sc=parseFloat((row[c+1]||'').trim());if(isNaN(sc))continue;const m=parseMonthFromStr(wks[c])||'Jun';
-        const ei=S.entries.findIndex(e=>e.agent===agent&&e.week===wks[c]&&e.source==='scores_csv');
-        const obj={id:ei>=0?S.entries[ei].id:'csv'+Date.now()+Math.random().toString(36).slice(2,6),agent,month:m,week:wks[c],score:sc,categories:ei>=0?S.entries[ei].categories:[],notes:'',source:'scores_csv'};
-        if(ei>=0){S.entries[ei]=obj;updated++;}else{S.entries.push(obj);added++;}}
+      const row=rows[i]; const raw=(row[0]||'').trim(); if(!raw||raw.toLowerCase()==='average') continue;
+      let agent=normAgentName(raw); if(!S.agents.includes(agent)){ S.agents.push(agent); S.active.add(agent); newAgents.push(agent); }
+      for(let c=0;c<wks.length;c++){
+        const sc=parseFloat((row[c+1]||'').trim()); if(isNaN(sc)) continue;
+        const m=normMonthStr(wks[c])||'Jul'; const wk=canonicalWeek(wks[c]);
+        const ei=S.entries.findIndex(e=>e.agent===agent&&e.week===wk&&e.source==='scores_csv');
+        const obj={id:ei>=0?S.entries[ei].id:'csv'+Date.now()+Math.random().toString(36).slice(2,6),agent,month:m,week:wk,score:sc,categories:ei>=0?S.entries[ei].categories:[],notes:'',source:'scores_csv'};
+        if(ei>=0){S.entries[ei]=obj;updated++;}else{S.entries.push(obj);added++;}
+      }
     }
-    persist(()=>toast(`✓ ${added} new + ${updated} updated entries${newAgents.length?' · '+newAgents.length+' new agents':''}`));
-  },error(){toast('Failed to parse CSV',false);}});ev.target.value='';}
+    persist(()=>toast(`✓ ${added} new, ${updated} updated${newAgents.length?' · '+newAgents.length+' new agents':''}`));
+    buildAll();
+  }, error(){ toast('CSV parse failed',false); }});
+  ev.target.value='';
+}
 
-// ── CSV: Weekly Trend ──
 function importWeeklyCSV(ev){
-  const files=Array.from(ev.target.files||[]);if(!files.length)return;
+  const files=Array.from(ev.target.files||[]); if(!files.length)return;
   let done=0,totalAdded=0,totalCalls=0,newAgents=new Set();
   files.forEach(f=>{
     Papa.parse(f,{header:true,skipEmptyLines:true,complete(res){
       const groups={};
       res.data.forEach(r=>{
-        const raw=(r['Agent']||'').trim();const week=(r['Week']||'').trim();const month=(r['Month']||'').trim();
-        const sc=parseFloat((r['Score']||r['Score ']||'').toString().trim());
+        const raw=(r['Agent']||'').trim(); const wk=(r['Week']||'').trim(); const month=(r['Month']||'').trim();
+        const sc=parseFloat((r['Score ']||r['Score']||'').toString().trim());
         const cat=(r['Category']||'').trim().replace(/^"|"$/g,'').replace(/,$/,'').trim();
-        if(!raw||!week)return;const key=raw+'||'+week;
-        if(!groups[key])groups[key]={agent:raw,week,month,scores:[],cats:new Set()};
-        if(!isNaN(sc))groups[key].scores.push(sc);
-        if(cat&&!isPositive(cat)){cat.split(',').map(p=>p.trim().replace(/,$/,'').trim()).filter(p=>p&&!isPositive(p)).forEach(p=>groups[key].cats.add(p));}
+        if(!raw||!wk) return;
+        const key=raw+'||'+wk;
+        if(!groups[key]) groups[key]={agent:raw,week:wk,month,scores:[],cats:new Set()};
+        if(!isNaN(sc)) groups[key].scores.push(sc);
+        if(cat&&!isPositive(cat)){ cat.split(',').map(p=>p.trim().replace(/,$/,'').trim()).filter(p=>p&&!isPositive(p)).forEach(p=>groups[key].cats.add(p)); }
         totalCalls++;
       });
       Object.values(groups).forEach(g=>{
-        let agent=normAgentName(g.agent);if(!S.agents.includes(agent)){S.agents.push(agent);S.active.add(agent);newAgents.add(agent);}
+        let agent=normAgentName(g.agent); if(!S.agents.includes(agent)){S.agents.push(agent);S.active.add(agent);newAgents.add(agent);}
         g.cats.forEach(c=>{if(!S.categories.includes(c))S.categories.push(c);});
-        const avg=g.scores.length?g.scores.reduce((s,v)=>s+v,0)/g.scores.length:null;if(avg===null)return;
-        const m=parseMonthFromStr(g.month)||parseMonthFromStr(g.week)||'Jun';
-        const wl=g.week+(g.month?' '+g.month:'');
+        const avg=g.scores.length?g.scores.reduce((s,v)=>s+v,0)/g.scores.length:null; if(avg===null)return;
+        const m=normMonthStr(g.month)||normMonthStr(g.week)||'Jul';
+        const wl=canonicalWeek(g.week+(g.month?' '+g.month:''));
         const ei=S.entries.findIndex(e=>e.agent===agent&&e.week===wl&&e.source==='weekly_csv');
         const obj={id:ei>=0?S.entries[ei].id:'wcsv'+Date.now()+Math.random().toString(36).slice(2,6),agent,month:m,week:wl,score:avg,categories:[...g.cats],notes:`${g.scores.length} call(s)`,source:'weekly_csv'};
         if(ei>=0)S.entries[ei]=obj;else{S.entries.push(obj);totalAdded++;}
       });
-      done++;if(done===files.length){persist(()=>toast(`✓ ${totalAdded} entries from ${totalCalls} calls · ${files.length} file(s)${newAgents.size?' · '+newAgents.size+' new agents':''}`));}
-    },error(){done++;toast('Failed: '+f.name,false);}});
-  });ev.target.value='';}
-
-// ── Manage Agents Modal ──
-function openAgentsModal(){
-  renderAgentList();
-  document.getElementById('newAgentInput').value='';
-  document.getElementById('addAgentMsg').textContent='';
-  document.getElementById('agentsModal').classList.add('open');
-}
-function closeAgentsModal(){
-  document.getElementById('agentsModal').classList.remove('open');
-  buildFilterBar();
-  redraw();
+      done++; if(done===files.length){ persist(()=>toast(`✓ ${totalAdded} entries from ${totalCalls} calls · ${files.length} file(s)${newAgents.size?' · '+newAgents.size+' new agents':''}`)); buildAll(); }
+    }, error(){ done++; toast('Failed: '+f.name,false); }});
+  });
+  ev.target.value='';
 }
 
-function renderAgentList(){
-  document.getElementById('agentCountLabel').textContent = S.agents.length;
-  const container = document.getElementById('agentListContainer');
-  if(!S.agents.length){
-    container.innerHTML='<div style="font-size:12px;color:var(--t3);padding:8px 0">No agents yet. Add one above.</div>';
-    return;
-  }
-  container.innerHTML = S.agents.map((a,i) => {
-    const entryCount = S.entries.filter(e=>e.agent===a).length;
-    const avgVals = S.entries.filter(e=>e.agent===a&&e.score!=null).map(e=>e.score);
-    const avg = avgVals.length ? (avgVals.reduce((s,v)=>s+v,0)/avgVals.length).toFixed(1)+'%' : '—';
-    return `<div style="display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px">
-      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${col(a)};flex-shrink:0"></span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a}</div>
-        <div style="font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:1px">${entryCount} entries · avg ${avg}</div>
-      </div>
-      <button class="btn" style="font-size:10px;padding:3px 9px;flex-shrink:0;color:var(--danger);border-color:#e8545444"
-        onclick="removeAgent('${a.replace(/'/g,"\\'")}')">Remove</button>
-    </div>`;
-  }).join('');
-}
-
-function addAgent(){
-  const input = document.getElementById('newAgentInput');
-  const msg = document.getElementById('addAgentMsg');
-  const name = input.value.trim().replace(/\s+/g,' ');
-  if(!name){ msg.style.color='var(--danger)'; msg.textContent='Please enter a name.'; return; }
-  if(S.agents.find(a=>a.toLowerCase()===name.toLowerCase())){
-    msg.style.color='var(--danger)'; msg.textContent=`"${name}" is already in the list.`; return;
-  }
-  S.agents.push(name);
-  S.active.add(name);
-  persist();
-  input.value='';
-  msg.style.color='var(--accent2)';
-  msg.textContent=`✓ "${name}" added successfully.`;
-  renderAgentList();
-  // Clear confirmation after 2s
-  setTimeout(()=>{ if(msg.textContent.includes(name)) msg.textContent=''; },2000);
-}
-
-function removeAgent(name){
-  const entryCount = S.entries.filter(e=>e.agent===name).length;
-  const warning = entryCount > 0
-    ? `"${name}" has ${entryCount} entries. Removing them will NOT delete their entries — their data stays but they won't appear in charts unless re-added.\n\nRemove agent from the roster?`
-    : `Remove "${name}" from the roster?`;
-  if(!confirm(warning)) return;
-  S.agents = S.agents.filter(a=>a!==name);
-  S.active.delete(name);
-  if(S.wAgent===name) S.wAgent = S.agents[0]||'';
-  persist();
-  renderAgentList();
-  toast(`"${name}" removed from roster`);
-}
-
-// ── INIT ──
-load();
-buildKPIs();
-buildFilterBar();
-renderTrend();
-
-// ── Hardcoded Firebase config — auto-connects on load ──
-(function autoConnect(){
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyAzHydR5rOOjEUXTmZoy3RHy-0Zq1_wJxc",
-    authDomain: "qc-dashboard-59de3.firebaseapp.com",
-    projectId: "qc-dashboard-59de3",
-    storageBucket: "qc-dashboard-59de3.firebasestorage.app",
-    messagingSenderId: "512724628401",
-    appId: "1:512724628401:web:3573c632cc983e047d8390"
-  };
-  // Save to localStorage so manual config UI also reflects it
-  localStorage.setItem('qc_fb_config', JSON.stringify(FIREBASE_CONFIG));
-  document.getElementById('fbBanner').style.display = 'none';
-  initFirebase(FIREBASE_CONFIG);
-})();
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+loadLocal();   // paint instantly from cache
+buildAll();    // render with cached data
+initFirebase(); // connect and sync (will re-render when data arrives)
 </script>
 </body>
 </html>
