@@ -336,10 +336,17 @@ const PAL = ['#4f7cff','#00c896','#f5a623','#2bd9c8','#a855f7','#e85454','#f9731
 const DASHES = [[],[6,3],[3,3],[8,3,3,3],[5,2],[10,3],[4,4],[6,2,2,2],[],[5,5]];
 
 const DEFAULT_AGENTS = [
-  'Angella Athieno','Arthur Ssemwezi','Atusasiira Mercy',
+  'Angella Athieno','Arthur Ssemwezi','Atusasiire Mercy',
   'Birungi Nuwagaba','David Wasen','Flavia Nangonzi',
   'Natasha Nakiyaga','Oliver Natoolo'
 ];
+// Only these agents are ever pulled in from imported CSVs — anyone else in the file is ignored.
+const ALLOWED_AGENTS = [...DEFAULT_AGENTS];
+const matchAllowedAgent = raw => {
+  if(!raw) return null;
+  const n = raw.trim().replace(/\s+/g,' ').toLowerCase();
+  return ALLOWED_AGENTS.find(a => a.toLowerCase() === n) || null;
+};
 
 const DEFAULT_CATS = [
   'All information not given',"Call cut, didn't call back",'Call too long',
@@ -372,7 +379,7 @@ const SEED_ENTRIES = [
   {id:'j4',agent:'David Wasen',month:'Jul',week:'04th Jul - 10th Jul',score:94.0,categories:['Didn`t mention consequences and benefits'],notes:'',source:'imported'},
   {id:'j5',agent:'Oliver Natoolo',month:'Jul',week:'04th Jul - 10th Jul',score:95.0,categories:['Script not followed'],notes:'',source:'imported'},
   {id:'j6',agent:'Angella Athieno',month:'Jul',week:'04th Jul - 10th Jul',score:94.0,categories:['Didn`t mention consequences and benefits'],notes:'',source:'imported'},
-  {id:'j7',agent:'Atusasiira Mercy',month:'Jul',week:'04th Jul - 10th Jul',score:94.0,categories:['Didn`t mention name / surname'],notes:'5 call(s)',source:'imported'}
+  {id:'j7',agent:'Atusasiire Mercy',month:'Jul',week:'04th Jul - 10th Jul',score:94.0,categories:['Didn`t mention name / surname'],notes:'5 call(s)',source:'imported'}
 ];
 
 // ══════════════════════════════════════════════════════
@@ -786,10 +793,10 @@ function importScoresCSV(ev){
     const rows=res.data.filter(r=>r.length>1&&r.some(c=>c&&c.trim()));
     if(!rows.length){ toast('Empty CSV',false); return; }
     const hdr=rows[0]; const wks=hdr.slice(1).map(h=>(h||'').trim()).filter(h=>h);
-    let added=0,updated=0,newAgents=[];
+    let added=0,updated=0,skipped=0;
     for(let i=1;i<rows.length;i++){
       const row=rows[i]; const raw=(row[0]||'').trim(); if(!raw||raw.toLowerCase()==='average') continue;
-      let agent=normAgentName(raw); if(!S.agents.includes(agent)){ S.agents.push(agent); S.active.add(agent); newAgents.push(agent); }
+      const agent=matchAllowedAgent(raw); if(!agent){ skipped++; continue; }
       for(let c=0;c<wks.length;c++){
         const sc=parseFloat((row[c+1]||'').trim()); if(isNaN(sc)) continue;
         const m=normMonthStr(wks[c])||'Jul'; const wk=canonicalWeek(wks[c]);
@@ -798,7 +805,7 @@ function importScoresCSV(ev){
         if(ei>=0){S.entries[ei]=obj;updated++;}else{S.entries.push(obj);added++;}
       }
     }
-    persist(()=>toast(`✓ ${added} new, ${updated} updated${newAgents.length?' · '+newAgents.length+' new agents':''}`));
+    persist(()=>toast(`✓ ${added} new, ${updated} updated${skipped?' · '+skipped+' row(s) skipped (agent not in roster)':''}`));
     buildAll();
   }, error(){ toast('CSV parse failed',false); }});
   ev.target.value='';
@@ -806,7 +813,7 @@ function importScoresCSV(ev){
 
 function importWeeklyCSV(ev){
   const files=Array.from(ev.target.files||[]); if(!files.length)return;
-  let done=0,totalAdded=0,totalCalls=0,newAgents=new Set();
+  let done=0,totalAdded=0,totalCalls=0,skippedCalls=0,skippedAgents=new Set();
   files.forEach(f=>{
     Papa.parse(f,{header:true,skipEmptyLines:true,complete(res){
       const groups={};
@@ -815,14 +822,16 @@ function importWeeklyCSV(ev){
         const sc=parseFloat((r['Score ']||r['Score']||'').toString().trim());
         const cat=(r['Category']||'').trim().replace(/^"|"$/g,'').replace(/,$/,'').trim();
         if(!raw||!wk) return;
-        const key=raw+'||'+wk;
-        if(!groups[key]) groups[key]={agent:raw,week:wk,month,scores:[],cats:new Set()};
+        const agent=matchAllowedAgent(raw);
+        if(!agent){ skippedCalls++; skippedAgents.add(raw); return; }
+        const key=agent+'||'+wk;
+        if(!groups[key]) groups[key]={agent,week:wk,month,scores:[],cats:new Set()};
         if(!isNaN(sc)) groups[key].scores.push(sc);
         if(cat&&!isPositive(cat)){ cat.split(',').map(p=>p.trim().replace(/,$/,'').trim()).filter(p=>p&&!isPositive(p)).forEach(p=>groups[key].cats.add(p)); }
         totalCalls++;
       });
       Object.values(groups).forEach(g=>{
-        let agent=normAgentName(g.agent); if(!S.agents.includes(agent)){S.agents.push(agent);S.active.add(agent);newAgents.add(agent);}
+        const agent=g.agent;
         g.cats.forEach(c=>{if(!S.categories.includes(c))S.categories.push(c);});
         const avg=g.scores.length?g.scores.reduce((s,v)=>s+v,0)/g.scores.length:null; if(avg===null)return;
         const m=normMonthStr(g.month)||normMonthStr(g.week)||'Jul';
@@ -831,7 +840,7 @@ function importWeeklyCSV(ev){
         const obj={id:ei>=0?S.entries[ei].id:'wcsv'+Date.now()+Math.random().toString(36).slice(2,6),agent,month:m,week:wl,score:avg,categories:[...g.cats],notes:`${g.scores.length} call(s)`,source:'weekly_csv'};
         if(ei>=0)S.entries[ei]=obj;else{S.entries.push(obj);totalAdded++;}
       });
-      done++; if(done===files.length){ persist(()=>toast(`✓ ${totalAdded} entries from ${totalCalls} calls · ${files.length} file(s)${newAgents.size?' · '+newAgents.size+' new agents':''}`)); buildAll(); }
+      done++; if(done===files.length){ persist(()=>toast(`✓ ${totalAdded} entries from ${totalCalls} calls · ${files.length} file(s)${skippedCalls?' · '+skippedCalls+' call(s) skipped ('+skippedAgents.size+' agent(s) not in roster)':''}`)); buildAll(); }
     }, error(){ done++; toast('Failed: '+f.name,false); }});
   });
   ev.target.value='';
